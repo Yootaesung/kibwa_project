@@ -1,0 +1,239 @@
+/* 기본 스타일 초기화 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+}
+
+body {
+    background-color: #f5f5f5;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* 채팅 컨테이너 */
+.chat-container {
+    max-width: 800px;
+    margin: 20px auto;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 90vh;
+}
+
+/* 채팅 헤더 */
+.chat-header {
+    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    padding: 15px 20px;
+    color: white;
+    text-align: center;
+}
+
+/* 카테고리 선택기 */
+.category-selector {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.category-selector select,
+.category-selector button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.category-selector select:disabled,
+.category-selector button:disabled {
+    background-color: #e0e0e0;
+    cursor: not-allowed;
+}
+
+.category-selector button:hover:not(:disabled) {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 추천 메시지 영역 */
+.suggested-messages {
+    padding: 10px 20px;
+    background-color: #f9f9f9;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.suggested-message {
+    background-color: #e3f2fd;
+    padding: 8px 12px;
+    border-radius: 15px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.suggested-message:hover {
+    background-color: #bbdefb;
+    transform: translateY(-2px);
+}
+
+.chat-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* 채팅 메시지 영역 */
+.chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* 메시지 스타일 */
+.message {
+    max-width: 70%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    line-height: 1.4;
+    word-wrap: break-word;
+    position: relative;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 사용자 메시지 */
+.user-message {
+    background: #007bff;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+    margin-left: auto;
+}
+
+/* 봇 메시지 */
+.bot-message {
+    background: #f1f1f1;
+    color: #333;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    margin-right: auto;
+}
+
+/* 중앙 정렬 메시지 (대화 종료 등) */
+.center-message {
+    align-self: center;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-style: italic;
+    text-align: center;
+    width: auto;
+    max-width: 90%;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin: 10px 0;
+}
+
+/* 채팅 입력 영역 */
+.chat-input {
+    display: flex;
+    padding: 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.chat-input input[type="text"] {
+    flex: 1;
+    padding: 12px 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 25px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+.chat-input input[type="text"]:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.chat-input button {
+    margin-left: 10px;
+    padding: 0 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.3s;
+}
+
+.chat-input button:hover {
+    background: #0056b3;
+}
+
+.chat-input button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+/* 대화 종료 버튼 */
+#end-btn {
+    background: #dc3545;
+}
+
+#end-btn:hover {
+    background: #c82333;
+}
+
+/* 대화 시작 버튼 */
+#start-btn {
+    background: #28a745;
+}
+
+#start-btn:hover {
+    background: #218838;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .chat-container {
+        margin: 0;
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .message {
+        max-width: 85%;
+    }
+    
+    .chat-input {
+        padding: 10px;
+    }
+    
+    .chat-input button {
+        padding: 0 15px;
+    }
+}
