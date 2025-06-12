@@ -361,7 +361,10 @@ async def chat(chat_request: ChatRequest, request: Request):
         
         # 테스트 모드일 때는 챗봇 응답을 생략하고 빈 문자열 반환
         if chat_request.is_test:
-            return JSONResponse(content={"response": "", "status": "success"})
+            if chat_request.action == 'test':
+                return JSONResponse(content={"response": "", "status": "success"})
+            else:
+                raise HTTPException(status_code=400, detail="Invalid action for test mode")
         
         chat_context = get_chat_context(username)
         

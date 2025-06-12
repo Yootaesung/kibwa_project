@@ -187,6 +187,7 @@
                         },
                         body: JSON.stringify({
                             message: message.content,
+                            action: 'test',  // 테스트 모드에서는 항상 'test'로 설정
                             is_test: true
                         })
                     });
