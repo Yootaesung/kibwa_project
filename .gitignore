@@ -44,3 +44,11 @@ chatbot/logs/
 
 # Chat logs
 chatbot/chat_log/
+
+# JSON files
+*.json
+!chatbot/templates/*.json
+!chatbot/static/*.json
+
+
+.env

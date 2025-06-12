@@ -15,6 +15,10 @@ module.exports = {
     merge_logs: true,
     time: true,
     autorestart: true,
-    max_memory_restart: "1G"
+    max_memory_restart: "1G",
+    listen_timeout: 10000,
+    max_restarts: 10,
+    max_memory_restart: "1G",
+    network_mode: "host"
   }]
 }

@@ -4,33 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>감정 인식 챗봇</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
             <h1>감정 인식 챗봇</h1>
-            <div class="category-selector">
-                <select id="category-select">
-                    <option value="">카테고리 선택</option>
-                    {% for category in categories %}
-                    <option value="{{ category }}">{{ category }}</option>
-                    {% endfor %}
-                </select>
-                <select id="emotion-select" disabled>
-                    <option value="">감정 선택</option>
-                    <option value="기쁨">기쁨</option>
-                    <option value="분노">분노</option>
-                    <option value="불안">불안</option>
-                    <option value="슬픔">슬픔</option>
-                    <option value="혐오">혐오</option>
-                    <option value="놀람">놀람</option>
-                </select>
-                <button id="auto-test-btn" disabled>자동 테스트 시작</button>
-                <button id="stop-test-btn" disabled style="display: none;">테스트 중지</button>
-                <span id="test-status" style="margin-left: 10px; color: #666;"></span>
-            </div>
         </div>
         <div class="chat-messages" id="chat-messages">
             <!-- 채팅 메시지가 여기에 추가됩니다 -->
@@ -51,131 +31,73 @@
         const userInput = document.getElementById('user-input');
         const sendBtn = document.getElementById('send-btn');
         const endBtn = document.getElementById('end-btn');
-        const categorySelect = document.getElementById('category-select');
-        const emotionSelect = document.getElementById('emotion-select');
-        const suggestedMessages = document.getElementById('suggested-messages');
-        
-        let chatData = {};
         const startBtn = document.getElementById('start-btn');
-        let isConversationActive = true;
-        
-        // 페이지 로드 시 챗봇 데이터 가져오기
-        fetch('/api/chat-data')
-            .then(response => response.json())
-            .then(data => {
-                chatData = data;
-            })
-            .catch(error => console.error('챗봇 데이터를 불러오는 중 오류가 발생했습니다:', error));
+        const suggestedMessages = document.getElementById('suggested-messages');
 
-        // 엔터 키로 메시지 전송
-        userInput.addEventListener('keypress', function(e) {
+        let chatData = {};
+        let isConversationActive = true;
+
+        function init() {
+            checkAuthentication();
+            
+            fetch('/api/chat-data')
+                .then(response => response.json())
+                .then(data => {
+                    chatData = data;
+                })
+                .catch(error => console.error('챗봇 데이터를 불러오는 중 오류가 발생했습니다:', error));
+
+            userInput.addEventListener('keypress', handleKeyPress);
+            sendBtn.addEventListener('click', handleSendClick);
+            endBtn.addEventListener('click', handleEndClick);
+            startBtn.addEventListener('click', startNewConversation);
+            window.onload = () => userInput.focus();
+        }
+
+        async function checkAuthentication() {
+            try {
+                const response = await fetch('/api/check-auth');
+                if (!response.ok) {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('인증 체크 중 오류 발생:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        function handleKeyPress(e) {
             if (e.key === 'Enter' && isConversationActive) {
                 sendMessage();
             }
-        });
+        }
 
-        // 전송 버튼 클릭 이벤트
-        sendBtn.addEventListener('click', function() {
+        function handleSendClick() {
             if (isConversationActive) {
                 sendMessage();
             }
-        });
+        }
 
-        // 대화 종료 버튼 클릭 이벤트
-        endBtn.addEventListener('click', function() {
+        function handleEndClick() {
             endConversation();
-        });
-
-        // 대화 시작 버튼 클릭 이벤트
-        startBtn.addEventListener('click', function() {
-            startNewConversation();
-        });
-
-        // 메시지 전송 함수
-        function sendMessage() {
-            const message = userInput.value.trim();
-            if (message === '') return;
-
-            // 사용자 메시지 표시
-            addMessage(message, true);
-            userInput.value = '';
-
-            // 로딩 표시
-            const loadingId = 'loading-' + Date.now();
-            addMessage('...', false, loadingId);
-
-            // 서버에 메시지 전송
-            $.ajax({
-                url: '/chat/',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    message: message,
-                    action: 'send'
-                }),
-                success: function(response) {
-                    // 로딩 메시지 제거
-                    const loadingElement = document.getElementById(loadingId);
-                    if (loadingElement) {
-                        loadingElement.remove();
-                    }
-                    
-                    // 봇 응답 표시
-                    addMessage(response.response, false);
-                },
-                error: function(error) {
-                    console.error('Error:', error);
-                    // 로딩 메시지 제거
-                    const loadingElement = document.getElementById(loadingId);
-                    if (loadingElement) {
-                        loadingElement.remove();
-                    }
-                    addMessage('죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.', false);
-                }
-            });
         }
 
-        // 대화 종료 함수
-        function endConversation() {
-            if (!isConversationActive) return;
+
+
+        function filterProfanity(text) {
+            const profanityMap = {
+                '시발': 'XX', '새끼': 'XX', '미친': 'XXX', '병신': 'XX', '지랄': 'XX',
+                '개새': 'XX', '닥쳐': 'XX', 'ㅅㅂ': 'XX', 'ㅂㅅ': 'XX', 'ㅈㄹ': 'XX', 'ㅁㅊ': 'XX'
+            };
             
-            // 서버에 대화 종료 알림
-            $.ajax({
-                url: '/chat/',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    message: '',
-                    action: 'end_conversation'
-                }),
-                success: function() {
-                    isConversationActive = false;
-                    addMessage('대화가 종료되었습니다.', false, null, true);
-                    endBtn.style.display = 'none';
-                    startBtn.style.display = 'inline-block';
-                    userInput.disabled = true;
-                    sendBtn.disabled = true;
-                },
-                error: function(error) {
-                    console.error('Error:', error);
-                    addMessage('대화 종료 중 오류가 발생했습니다.', false);
-                }
-            });
+            let filteredText = text;
+            for (const [word, replacement] of Object.entries(profanityMap)) {
+                const regex = new RegExp(word, 'gi');
+                filteredText = filteredText.replace(regex, replacement);
+            }
+            return filteredText;
         }
 
-        // 새 대화 시작 함수
-        function startNewConversation() {
-            // 채팅 메시지 초기화
-            chatMessages.innerHTML = '';
-            isConversationActive = true;
-            endBtn.style.display = 'inline-block';
-            startBtn.style.display = 'none';
-            userInput.disabled = false;
-            sendBtn.disabled = false;
-            userInput.focus();
-        }
-
-        // 메시지 추가 함수
         function addMessage(text, isUser, messageId = null, isCenter = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'} ${isCenter ? 'center-message' : ''}`;
@@ -187,114 +109,139 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 전역 변수
-        let autoTestInterval;
-        let testMessages = [];
-        let currentTestIndex = 0;
-        let isAutoTesting = false;
+        function sendMessage() {
+            const originalMessage = userInput.value.trim();
+            if (originalMessage === '') return;
 
-        // 이벤트 리스너 설정
-        categorySelect.addEventListener('change', function() {
-            const hasValue = !!this.value;
-            emotionSelect.disabled = !hasValue;
-            autoTestBtn.disabled = !hasValue;
-        });
-        
-        // 자동 테스트 상태 업데이트
-        function updateAutoTestUI(isTesting) {
-            isAutoTesting = isTesting;
-            categorySelect.disabled = isTesting;
-            emotionSelect.disabled = isTesting;
-            autoTestBtn.disabled = isTesting || !categorySelect.value;
-            stopTestBtn.disabled = !isTesting;
-            stopTestBtn.style.display = isTesting ? 'inline-block' : 'none';
-            testStatus.textContent = isTesting ? `테스트 진행 중 (${currentTestIndex + 1}/${testMessages.length})` : '';
+            const filteredMessage = filterProfanity(originalMessage);
+            const isFiltered = originalMessage !== filteredMessage;
+
+            const messageId = 'msg-' + Date.now();
+            addMessage('...', true, messageId);
+            userInput.value = '';
+
+            $.ajax({
+                url: '/chat/',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    message: filteredMessage,
+                    action: 'send',
+                    is_filtered: true
+                }),
+                success: function(response) {
+                    const messageElement = document.getElementById(messageId);
+                    if (messageElement) {
+                        if (isFiltered) {
+                            messageElement.textContent = filteredMessage;
+                            messageElement.title = '필터링된 메시지';
+                            messageElement.classList.add('filtered-message');
+                        } else {
+                            messageElement.textContent = originalMessage;
+                        }
+                    }
+
+                    if (response && response.response) {
+                        const loadingId = 'loading-' + Date.now();
+                        addMessage('...', false, loadingId);
+                        
+                        // Remove loading message and add actual response
+                        setTimeout(() => {
+                            const loadingElement = document.getElementById(loadingId);
+                            if (loadingElement) {
+                                loadingElement.remove();
+                            }
+                            addMessage(response.response, false);
+                        }, 500);
+                    } else {
+                        console.error('Invalid response format:', response);
+                        addMessage('응답을 처리하는 중 오류가 발생했습니다.', false);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error:', status, error);
+                    console.error('Response:', xhr.responseText);
+                    const messageElement = document.getElementById(messageId);
+                    if (messageElement) {
+                        messageElement.textContent = '오류가 발생했습니다.';
+                    }
+                    let errorMsg = '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.';
+                    try {
+                        const errorResponse = JSON.parse(xhr.responseText);
+                        if (errorResponse.details) {
+                            errorMsg += '\n' + errorResponse.details;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing error response:', e);
+                    }
+                    addMessage(errorMsg, false);
+                }
+            });
         }
-        
-        // 다음 메시지 전송
-        async function sendNextMessage() {
-            if (currentTestIndex >= testMessages.length) {
-                // 모든 메시지 전송 완료
-                clearInterval(autoTestInterval);
-                updateAutoTestUI(false);
-                testStatus.textContent = '테스트 완료';
-                return;
-            }
-            
-            const message = testMessages[currentTestIndex];
-            userInput.value = message;
-            
-            // 메시지 전송
-            await sendMessage();
-            
-            // 다음 메시지로 이동
-            currentTestIndex++;
-            testStatus.textContent = `테스트 진행 중 (${currentTestIndex + 1}/${testMessages.length})`;
-        }
-        
-        // 자동 테스트 시작
-        async function startAutoTest() {
-            const category = categorySelect.value;
-            const emotion = emotionSelect.value;
-            
-            if (!category || !emotion) {
-                alert('카테고리와 감정을 모두 선택해주세요.');
-                return;
-            }
-            
+
+        async function endConversation() {
+            if (!isConversationActive) return;
+
             try {
-                // 테스트 메시지 가져오기
-                const response = await fetch(`/api/start-auto-test?category=${encodeURIComponent(category)}&emotion=${encodeURIComponent(emotion)}`);
-                const data = await response.json();
+                // 현재 채팅 메시지 수집
+                const messages = [];
+                const messageElements = document.querySelectorAll('.message:not(.centered)');
                 
+                messageElements.forEach(msgElement => {
+                    const isUser = msgElement.classList.contains('user-message');
+                    const role = isUser ? 'user' : 'assistant';
+                    const content = msgElement.textContent.trim();
+                    
+                    if (content) {
+                        messages.push({
+                            role: role,
+                            content: content
+                        });
+                    }
+                });
+
+                // 채팅 기록 저장 요청
+                const response = await fetch('/api/end-chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: messages
+                    }),
+                    credentials: 'include'  // 쿠키를 포함하기 위해 필요
+                });
+
                 if (!response.ok) {
-                    throw new Error(data.error || '테스트를 시작할 수 없습니다.');
+                    throw new Error('채팅 기록 저장 실패');
                 }
-                
-                testMessages = data.messages;
-                currentTestIndex = 0;
-                
-                if (testMessages.length === 0) {
-                    throw new Error('테스트할 메시지가 없습니다.');
-                }
-                
-                // 채팅 초기화
-                chatMessages.innerHTML = '';
-                
-                // 자동 테스트 시작
-                updateAutoTestUI(true);
-                
-                // 첫 메시지 전송 후 3초마다 다음 메시지 전송
-                await sendNextMessage();
-                autoTestInterval = setInterval(sendNextMessage, 5000); // 5초 간격으로 전송
+
+                // 기존 대화 종료 로직
+                isConversationActive = false;
+                addMessage('대화가 종료되었습니다.', false, null, true);
+                endBtn.style.display = 'none';
+                startBtn.style.display = 'inline-block';
+                userInput.disabled = true;
+                sendBtn.disabled = true;
                 
             } catch (error) {
-                console.error('자동 테스트 중 오류 발생:', error);
-                alert(`자동 테스트를 시작할 수 없습니다: ${error.message}`);
-                updateAutoTestUI(false);
+                console.error('Error:', error);
+                addMessage('대화 종료 중 오류가 발생했습니다: ' + error.message, false);
             }
         }
-        
-        // 자동 테스트 중지
-        function stopAutoTest() {
-            clearInterval(autoTestInterval);
-            updateAutoTestUI(false);
-            testStatus.textContent = '테스트 중지됨';
-        }
-        
-        // 버튼 요소 가져오기
-        const autoTestBtn = document.getElementById('auto-test-btn');
-        const stopTestBtn = document.getElementById('stop-test-btn');
-        const testStatus = document.getElementById('test-status');
-        
-        // 이벤트 리스너 등록
-        autoTestBtn.addEventListener('click', startAutoTest);
-        stopTestBtn.addEventListener('click', stopAutoTest);
-        
-        // 페이지 로드 시 입력 필드에 포커스
-        window.onload = function() {
+
+        function startNewConversation() {
+            chatMessages.innerHTML = '';
+            isConversationActive = true;
+            endBtn.style.display = 'inline-block';
+            startBtn.style.display = 'none';
+            userInput.disabled = false;
+            sendBtn.disabled = false;
             userInput.focus();
-        };
+        }
+
+        // 초기화 실행
+        init();
     </script>
 </body>
 </html>

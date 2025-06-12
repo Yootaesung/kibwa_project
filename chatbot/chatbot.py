@@ -1,210 +1,272 @@
 import json
 import os
-import unicodedata
-import re
+import sys
+from typing import Dict, List, Optional, Any
+from openai import OpenAI
+import logging
 from datetime import datetime
-from typing import Dict, List, Tuple
 
-import openai
+# Add the project root to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def clean_text(text: str) -> str:
+# Import settings and logger after adding to path
+from chatbot.config import settings
+from chatbot.config.logger import logger
+
+class SimpleChatbot:
     """
-    텍스트를 UTF-8 인코딩에 안전한 형식으로 정제합니다.
+    간단한 챗봇 클래스입니다.
+    OpenAI의 GPT 모델을 사용하여 대화를 생성합니다.
     """
-    try:
-        # 모든 비표준 유니코드 제거
-        text = ''.join(c for c in text if ord(c) < 0x10000)
-        
-        # UTF-8 인코딩/디코딩
-        text = text.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
-        
-        # 제어 문자 제거
-        text = ''.join(c for c in text if unicodedata.category(c)[0] != 'C')
-        
-        # 빈 문자열 제거
-        if not text.strip():
-            return ""
-        
-        return text.strip()
-    except Exception as e:
-        print(f"텍스트 정제 중 오류 발생: {e}")
-        return ""
-
-class EmotionAwareChatbot:
-    def __init__(self):
+    
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
         """
-        감정 인식 챗봇 클래스 (ChatGPT 기반)
+        SimpleChatbot 초기화
+        
+        Args:
+            api_key: OpenAI API 키. None인 경우 환경변수에서 가져옵니다.
+            model: 사용할 OpenAI 모델명 (기본값: gpt-3.5-turbo)
         """
-        self.emotion_history = []
-        self.emotion_labels = ['기쁨', '분노', '불안', '슬픔', '혐오', '놀람']
-        self.chat_history = []
+        self.chat_history: List[Dict[str, str]] = []
+        self.model = model
         
         # API 키 설정
-        self.api_key = os.getenv('OPENAI_API_KEY')
+        self.api_key = api_key or os.getenv('OPENAI_API_KEY')
         if not self.api_key:
-            raise ValueError("환경 변수 OPENAI_API_KEY가 설정되지 않았습니다.")
-            
+            raise ValueError(
+                "OpenAI API 키가 설정되지 않았습니다. "
+                "환경변수 OPENAI_API_KEY를 설정하거나 생성자에 api_key를 전달하세요."
+            )
+        
         # OpenAI 클라이언트 초기화
-        self.client = openai.OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key=self.api_key)
         
         # 시스템 프롬프트 설정
         self.system_prompt = """
-        당신은 친절하고 이해력이 뛰어난 상담사입니다.
+        당신은 친절하고 전문적인 상담사입니다. 
+        사용자의 질문에 도움이 되는 조언을 제공해주세요.
         
         대화 규칙:
         1. 항상 한국어로만 대답하세요.
         2. 존댓말을 사용하세요.
         3. 간결하고 친절하게 답변하세요.
-        4. 사용자의 감정을 잘 공감해주세요.
-        5. 대답은 1-2문장으로 짧게 유지하세요.
-        6. 영어 단어나 문장을 절대 사용하지 마세요.
+        4. 대답은 1-2문장으로 짧게 유지하세요.
+        5. 영어 단어나 문장을 절대 사용하지 마세요.
         """
-
+        
+        logger.info(f"SimpleChatbot initialized with model: {self.model}")
+    
+    @staticmethod
+    def clean_text(text: str) -> str:
+        """
+        입력된 텍스트를 안전하게 정제합니다.
+        
+        Args:
+            text: 정제할 텍스트
+            
+        Returns:
+            str: 정제된 텍스트
+            
+        Raises:
+            TypeError: 입력이 문자열, bytes, bytearray가 아닌 경우
+        """
+        if text is None:
+            return ""
+            
+        try:
+            # 문자열로 변환 (bytes나 bytearray인 경우)
+            if not isinstance(text, str):
+                text = text.decode('utf-8', errors='replace')
+            
+            # None 체크
+            if text is None:
+                return ""
+                
+        except Exception as e:
+            # 변환 중 오류 발생 시 빈 문자열 반환
+            print(f"Error cleaning text: {e}")
+            return ""
+            
+        # 좌우 공백 제거
+        return text.strip()
+    
     def save_conversation_entry(self, user_input: str, response: str):
-        """대화 기록 업데이트"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        """대화 기록을 업데이트합니다."""
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.chat_history.append({
             "timestamp": timestamp,
             "user_input": user_input,
             "response": response
         })
 
-    def save_conversation(self) -> None:
+    def save_conversation(self, filename: Optional[str] = None) -> str:
         """
-        대화 기록을 JSON 파일로 저장합니다.
+        현재까지의 대화 기록을 JSON 파일로 저장합니다.
+        
+        Args:
+            filename: 저장할 파일 경로. None인 경우 자동 생성됩니다.
+            
+        Returns:
+            str: 저장된 파일 경로
+            
+        Raises:
+            IOError: 파일 저장 중 오류가 발생한 경우
         """
+        if not self.chat_history:
+            logger.warning("저장할 대화 기록이 없습니다.")
+            return ""
+            
         try:
-            # 타임스탬프 기반 파일명 생성
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"chat_log/conversation_{timestamp}.json"
+            import datetime
+            # 파일명이 지정되지 않은 경우 자동 생성
+            if not filename:
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                os.makedirs(settings.CHAT_LOG_DIR, exist_ok=True)
+                filename = os.path.join(settings.CHAT_LOG_DIR, f"conversation_{timestamp}.json")
             
             # 디렉토리가 없으면 생성
-            os.makedirs("chat_log", exist_ok=True)
+            os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
             
-            # 대화 기록 저장
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(self.chat_history, f, ensure_ascii=False, indent=2)
-                
-            print(f"대화 기록이 {filename}에 저장되었습니다.")
+            # 임시 파일에 먼저 저장 (원자적 연산을 위함)
+            temp_filename = f"{filename}.tmp"
+            with open(temp_filename, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'metadata': {
+                        'created_at': datetime.datetime.utcnow().isoformat(),
+                        'model': self.model
+                    },
+                    'conversation': self.chat_history
+                }, f, ensure_ascii=False, indent=2)
             
-        except Exception as e:
-            print(f"대화 기록 저장 중 오류 발생: {e}")
+            # 임시 파일을 최종 파일로 이동 (원자적 연산)
+            if os.path.exists(filename):
+                os.remove(filename)
+            os.rename(temp_filename, filename)
             
-    def generate_response(self, user_input: str) -> str:
-        try:
-            messages = [
-                {"role": "system", "content": self.system_prompt}
-            ]
+            logger.info(f"대화 기록이 {filename}에 성공적으로 저장되었습니다.")
+            return filename
             
-            for entry in self.chat_history[-3:]:
-                messages.append({"role": "user", "content": entry["user_input"]})
-                messages.append({"role": "assistant", "content": entry["response"]})
-            
-            messages.append({"role": "user", "content": user_input})
-            
-            try:
-                response = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    temperature=0.7,
-                    max_tokens=100
-                )
-                
-                response_text = response.choices[0].message.content.strip()
-                cleaned_response = ''.join(c for c in response_text if ord(c) < 0x10000)
-                cleaned_response = clean_text(cleaned_response)
-                
-                self.chat_history.append({
-                    "user_input": user_input,
-                    "response": cleaned_response
-                })
-                
-                return cleaned_response
-                
-            except Exception as e:
-                print(f"OpenAI API 호출 중 오류 발생: {e}")
-                if self.chat_history:
-                    last_response = self.chat_history[-1]["response"]
-                    return last_response
-                else:
-                    return "죄송합니다. 잠시 후 다시 시도해 주세요."
+        except (IOError, OSError, json.JSONEncodeError) as e:
+            error_msg = f"대화 기록 저장 중 오류 발생: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise IOError(error_msg) from e
             
         except Exception as e:
-            print(f"응답 생성 중 오류 발생: {e}")
+            error_msg = f"예상치 못한 오류로 대화 기록을 저장하지 못했습니다: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            raise
             
-            # 이전 대화 기록에서 마지막 응답을 가져와 재사용
-            last_response = "죄송해요, 답변을 생성하는 데 잠시 문제가 생겼어요. 다시 시도해주시겠어요?"
-            if self.chat_history:
-                last_entry = self.chat_history[-1]
-                last_response = last_entry["response"]
-            
-            return last_response, "중립", {"중립": 1.0}
-
-    def get_emotion_summary(self) -> Dict[str, float]:
+    def generate_response(
+        self,
+        user_input: str,
+        max_tokens: int = 500,
+        temperature: float = 0.7,
+    ) -> str:
         """
-        현재까지의 대화에서의 감정 분포를 반환합니다.
+        사용자 입력에 대한 응답을 생성합니다.
         
+        Args:
+            user_input: 사용자 입력 텍스트
+            max_tokens: 생성할 최대 토큰 수 (기본값: 500)
+            temperature: 응답의 무작위성 (0.0 ~ 2.0, 기본값: 0.7)
+            
         Returns:
-            Dict[str, float]: 감정별 점수 요약
+            생성된 응답 텍스트
+            
+        Raises:
+            ValueError: user_input이 비어있거나 유효하지 않은 경우
+            Exception: API 오류 또는 기타 문제 발생 시
         """
-        # 영어 감정을 한국어로 매핑
-        emotion_map = {
-            'joy': '기쁨',
-            'happiness': '기쁨',
-            'anger': '분노',
-            'fear': '불안',
-            'sadness': '슬픔',
-            'neutral': '중립',
-            'disgust': '혐오',
-            'surprise': '당황'
-        }
-        
-        summary = {emotion: 0.0 for emotion in self.emotion_labels}
-        
-        for entry in self.emotion_history:
-            for emotion, score in entry['emotion'].items():
-                # 영어 감정을 한국어로 변환
-                korean_emotion = emotion_map.get(emotion.lower(), emotion)
-                # 한국어 감정이 유효한 경우에만 추가
-                if korean_emotion in summary:
-                    summary[korean_emotion] += score
-                else:
-                    # 유효하지 않은 감정은 '중립'으로 처리
-                    summary['중립'] += score
-                    
-        # 정규화
-        total = len(self.emotion_history)
+        # 입력 검증
+        if not user_input or not isinstance(user_input, str):
+            raise ValueError("user_input은 비어있지 않은 문자열이어야 합니다.")
+            
+        try:
+            # 입력 정제
+            cleaned_input = self.clean_text(user_input)
+            if not cleaned_input:
+                return "죄송해요, 이해하지 못했어요. 다시 말씀해주시겠어요?"
+            
+            # API에 보낼 메시지 준비
+            messages = [{"role": "system", "content": self.system_prompt}]
+            
+            # 대화 기록 추가
+            messages.extend([
+                {"role": "user" if i % 2 == 0 else "assistant", "content": msg}
+                for i, msg in enumerate(self.chat_history[-10:])  # 최근 5턴(유저+봇)만 사용
+            ])
+            
+            # 현재 사용자 입력 추가
+            messages.append({"role": "user", "content": cleaned_input})
+            
+            # OpenAI API 호출
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=min(max(max_tokens, 1), 2000),  # 1~2000 사이로 제한
+                temperature=min(max(temperature, 0.0), 2.0),  # 0.0 ~ 2.0 사이로 제한
+                top_p=1.0,
+                frequency_penalty=0.0,
+                presence_penalty=0.0,
+            )
+            
+            # 응답 추출
+            assistant_response = response.choices[0].message.content.strip()
+            
+            # 대화 기록 업데이트
+            self.save_conversation_entry(cleaned_input, assistant_response)
+            
+            return assistant_response
+            
+        except Exception as e:
+            logger.error(f"응답 생성 중 오류 발생: {str(e)}", exc_info=True)
+            return "죄송해요, 답변을 생성하는 데 문제가 발생했어요. 잠시 후 다시 시도해주세요."
 
 def main():
-    print("챗봇을 시작합니다...")
-    print("종료하려면 '종료'를 입력하세요.")
+    """
+    챗봇을 실행하는 메인 함수입니다.
+    """
+    import argparse
     
-    chatbot = EmotionAwareChatbot()
+    parser = argparse.ArgumentParser(description='Simple Chatbot')
+    parser.add_argument('--api-key', type=str, help='OpenAI API 키')
+    parser.add_argument('--model', type=str, default='gpt-3.5-turbo',
+                       help=f'사용할 모델 (기본값: gpt-3.5-turbo)')
+    
+    args = parser.parse_args()
     
     try:
+        # 챗봇 인스턴스 생성
+        chatbot = SimpleChatbot(api_key=args.api_key, model=args.model)
+        print("챗봇이 시작되었습니다. 종료하려면 '종료'를 입력하세요.")
+        
         while True:
-            user_input = input("\n당신: ").strip()
-            
-            if user_input.lower() == "종료":
-                print("\n대화 기록을 저장합니다...")
-                chatbot.save_conversation()
-                print("감사합니다! 챗봇을 종료합니다.")
-                return
-                
             try:
+                # 사용자 입력 받기
+                user_input = input("\n당신: ")
+                
+                # 종료 조건
+                if user_input.lower() in ['종료', 'exit', 'quit']:
+                    print("챗봇을 종료합니다. 안녕히 가세요!")
+                    break
+                
+                # 응답 생성
                 response = chatbot.generate_response(user_input)
-                print(f"\n봇: {response}")
+                print(f"\n챗봇: {response}")
                 
-                # 대화 기록 업데이트
-                chatbot.save_conversation_entry(user_input, response)
-                
+            except KeyboardInterrupt:
+                print("\n챗봇을 종료합니다.")
+                break
             except Exception as e:
-                print(f"\n봇: 죄송해요, 잠시 문제가 생겼어요. 다시 시도해주세요. ({str(e)})")
-    except KeyboardInterrupt:
-        print("\n대화 기록을 저장합니다...")
-        chatbot.save_conversation()
-        print("감사합니다! 챗봇을 종료합니다.")
-        return
+                print(f"\n오류가 발생했습니다: {e}")
+                continue
+                
+    except Exception as e:
+        print(f"챗봇 초기화 중 오류가 발생했습니다: {e}")
+        return 1
+    
+    return 0
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테스트 - 감정 인식 챗봇</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .test-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .file-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .chat-container {
+            display: none;
+            margin-top: 20px;
+        }
+        .chat-box {
+            height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        .bot-message {
+            background: #e9ecef;
+            color: #212529;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        select {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>챗봇 테스트</h1>
+        
+        <div class="file-selector">
+            <h2>테스트할 시나리오 선택</h2>
+            <select id="scenario-select">
+                <option value="">시나리오를 선택하세요...</option>
+                <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
+            </select>
+            <div class="controls">
+                <button id="start-test" class="btn btn-primary" disabled>테스트 시작</button>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chat-container">
+            <div class="chat-box" id="chat-box">
+                <!-- 채팅 메시지가 여기에 표시됩니다 -->
+            </div>
+            <div class="controls">
+                <button id="end-test" class="btn btn-danger">테스트 종료</button>
+                <div id="status">테스트가 진행 중이 아닙니다.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const scenarioSelect = document.getElementById('scenario-select');
+            const startBtn = document.getElementById('start-test');
+            const endBtn = document.getElementById('end-test');
+            const chatBox = document.getElementById('chat-box');
+            const chatContainer = document.getElementById('chat-container');
+            const statusDiv = document.getElementById('status');
+            
+            let currentMessages = [];
+            let currentScenario = null;
+            let messageIndex = 0;
+            let isTestRunning = false;
+
+            // 시나리오 목록 불러오기
+            async function loadScenarios() {
+                try {
+                    const response = await fetch('/api/test/scenarios');
+                    const data = await response.json();
+                    
+                    scenarioSelect.innerHTML = '<option value="">시나리오를 선택하세요...</option>';
+                    data.scenarios.forEach(scenario => {
+                        const option = document.createElement('option');
+                        option.value = scenario.key;
+                        option.textContent = `${scenario.age_group} / ${scenario.gender} / ${scenario.role}`;
+                        scenarioSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('시나리오를 불러오는 중 오류 발생:', error);
+                    alert('시나리오를 불러오는 중 오류가 발생했습니다.');
+                }
+            }
+
+            // 채팅 메시지 추가
+            function addMessage(role, content) {
+                if (!content) {
+                    return; // 빈 내용은 무시
+                }
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}-message`;
+                
+                // 메시지를 <p> 태그로 감싸서 줄바꿈을 유지하도록 함
+                const contentDiv = document.createElement('div');
+                contentDiv.innerHTML = content.replace(/\n/g, '<br>');
+                messageDiv.appendChild(contentDiv);
+                
+                chatBox.appendChild(messageDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
+                
+                // 메시지를 기록에 추가
+                currentMessages.push({
+                    role: role === 'user' ? 'user' : 'assistant',
+                    content: content,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // 다음 메시지 보내기
+            async function sendNextMessage() {
+                if (messageIndex >= currentScenario.messages.length) {
+                    // 모든 메시지를 보냈으면 테스트 종료
+                    await endTest();
+                    return;
+                }
+
+                const message = currentScenario.messages[messageIndex++];
+                addMessage('user', message.content);
+
+                try {
+                    // 서버에 메시지 전송 및 응답 받기
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message.content,
+                            is_test: true
+                        })
+                    });
+
+                    if (!response.ok) {
+                        // 서버 응답이 실패했을 때
+                        const error = await response.text();
+                        console.error('서버 응답 오류:', error);
+                        addMessage('bot', '서버 응답 중 오류가 발생했습니다.');
+                    } else {
+                        const data = await response.json();
+                        // 빈 응답일 경우 건너뛰기
+                        if (!data.response) {
+                            // 다음 메시지로 바로 이동
+                            if (isTestRunning) {
+                                setTimeout(sendNextMessage, 1000);
+                                return;
+                            }
+                        }
+                        addMessage('bot', data.response);
+                    }
+                    
+                    // 다음 메시지로 이동 (약간의 딜레이 후)
+                    if (isTestRunning) {
+                        setTimeout(sendNextMessage, 1000);
+                    }
+                } catch (error) {
+                    console.error('메시지 전송 중 오류 발생:', error);
+                    addMessage('bot', '오류가 발생했습니다.');
+                }
+            }
+
+            // 테스트 시작
+            async function startTest() {
+                const selectedKey = scenarioSelect.value;
+                if (!selectedKey) return;
+
+                try {
+                    // 선택한 시나리오 정보 가져오기
+                    const response = await fetch(`/api/test/scenario/${selectedKey}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    currentScenario = data.scenario;
+                    currentMessages = [];
+                    messageIndex = 0;
+                    isTestRunning = true;
+                    
+                    // UI 업데이트
+                    scenarioSelect.disabled = true;
+                    startBtn.disabled = true;
+                    chatContainer.style.display = 'block';
+                    chatBox.innerHTML = '';
+                    statusDiv.textContent = '테스트 진행 중...';
+                    
+                    // 첫 메시지 전송
+                    sendNextMessage();
+                } catch (error) {
+                    console.error('테스트 시작 중 오류 발생:', error);
+                    alert('테스트를 시작하는 중 오류가 발생했습니다: ' + error.message);
+                }
+            }
+
+            // 테스트 종료
+            async function endTest() {
+                isTestRunning = false;
+                
+                try {
+                    // 테스트 결과 저장
+                    await fetch('/api/test/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            scenario_key: currentScenario.key,
+                            messages: currentMessages
+                        })
+                    });
+                    
+                    statusDiv.textContent = '테스트가 완료되었습니다. 결과가 저장되었습니다.';
+                } catch (error) {
+                    console.error('테스트 결과 저장 중 오류 발생:', error);
+                    statusDiv.textContent = '테스트가 완료되었지만 결과 저장 중 오류가 발생했습니다.';
+                } finally {
+                    // UI 초기화
+                    scenarioSelect.disabled = false;
+                    startBtn.disabled = false;
+                    endBtn.disabled = true;
+                }
+            }
+
+            // 이벤트 리스너 등록
+            scenarioSelect.addEventListener('change', function() {
+                startBtn.disabled = !this.value;
+            });
+
+            startBtn.addEventListener('click', startTest);
+            endBtn.addEventListener('click', endTest);
+
+            // 초기화
+            loadScenarios();
+        });
+    </script>
+</body>
+</html>
