@@ -37,6 +37,7 @@ ENV/
 *.log
 *.sql
 *.sqlite
+chatbot/logs/
 
 # Environment variables
 .env
