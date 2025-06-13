@@ -1,0 +1,75 @@
+{
+    "profanities": {
+        "basic": [
+            {"word": "시발", "replacement": "XXXX", "variants": ["ㅅㅂ", "시팔", "씹팔", "십팔", "십팔넘", "십팔놈"]},
+            {"word": "새끼", "replacement": "XXXX", "variants": ["새끼야", "ㅅㄲ", "새꺄", "새꺠", "세끼", "세꺄"]},
+            {"word": "미친", "replacement": "XXXX", "variants": ["미친놈", "미친년", "ㅁㅊ", "미친넘", "미친놈들", "미친년들"]},
+            {"word": "병신", "replacement": "XXXX", "variants": ["병신년", "ㅂㅅ", "병신놈", "병신들", "병신아", "병신인가"]},
+            {"word": "지랄", "replacement": "XXXX", "variants": ["ㅈㄹ", "지랄하네", "지랄이네", "지랄임", "지랄한다"]},
+            {"word": "개새끼", "replacement": "XXXX", "variants": ["개새끼야", "개새끼년", "ㄱㅅㄲ", "개쉐끼", "개새기", "개쌔끼"]},
+            {"word": "닥쳐", "replacement": "XXXX", "variants": ["ㄷㅊ", "닥치고", "닥치세요", "닥쳐라"]},
+            {"word": "씨발", "replacement": "XXXX", "variants": ["씨발년", "ㅅㅂ", "씨바", "씨바라", "씨바알", "씨바아"]},
+            {"word": "좆같이", "replacement": "XXXX", "variants": ["ㅈ같이", "좆같네", "좆같다", "좆까라"]},
+            {"word": "존나", "replacement": "XXXX", "variants": ["존나게", "ㅈㄴ", "졸라", "쫌나", "쪼나"]},
+            {"word": "개소리", "replacement": "XXXX", "variants": ["개소리하네", "개소리하지마", "개소리하지마라"]},
+            {"word": "니애미", "replacement": "XXXX", "variants": ["니애비", "니애미뒤진다", "니애비뒤진다"]},
+            {"word": "느금마", "replacement": "XXXX", "variants": ["느금빠", "느그앰", "느그애비"]},
+            {"word": "돌아이", "replacement": "XXXX", "variants": ["돌대가리", "돌머리", "돌대가리네"]},
+            {"word": "또라이", "replacement": "XXXX", "variants": ["도라이", "도란이", "또라이나"]},
+            {"word": "빙신", "replacement": "XXXX", "variants": ["병신", "빙신아", "빙신인가"]},
+            {"word": "씨벌", "replacement": "XXXX", "variants": ["씨벌탱", "씨벌년", "씨벌놈"]},
+            {"word": "썅놈", "replacement": "XXXX", "variants": ["썅년", "썅놈의", "썅놈아"]}
+        ],
+        "slang": [
+            {"word": "존버", "replacement": "XXXX", "variants": ["존버리", "ㅈ버", "존버중"]},
+            {"word": "존잘", "replacement": "XXXX", "variants": ["존잘리", "ㅈ잘", "존잘남"]},
+            {"word": "개이득", "replacement": "XXXX", "variants": ["개꿀", "개이쁨", "개잼"]},
+            {"word": "뇌절", "replacement": "XXXX", "variants": ["뇌절중", "뇌절이네", "뇌절임"]},
+            {"word": "개씹", "replacement": "XXXX", "variants": ["개씹노잼", "개씹노답", "개씹치다"]}
+        ],
+        "sexual": [
+            {"word": "보지", "replacement": "XXXX", "variants": ["보짓", "보짓물", "보짓물냄새"]},
+            {"word": "자지", "replacement": "XXXX", "variants": ["자지구녕", "자지털", "자지빨아"]},
+            {"word": "성교", "replacement": "XXXX", "variants": ["섹스", "성관계", "성행위"]},
+            {"word": "자위", "replacement": "XXXX", "variants": ["딸딸이", "딸치기", "자위행위"]}
+        ],
+        "hate_speech": [
+            {"word": "한남", "replacement": "XXXX", "variants": ["한남충", "한남들", "한남새끼"]},
+            {"word": "한녀", "replacement": "XXXX", "variants": ["한녀충", "한녀들", "한녀새끼"]},
+            {"word": "메갈", "replacement": "XXXX", "variants": ["메갈년", "메갈충", "메갈놈"]},
+            {"word": "일베", "replacement": "XXXX", "variants": ["일베충", "일베년", "일베놈"]}
+        ]
+    },
+    "insults": [
+        {"word": "호구", "replacement": "XXXX", "variants": ["호구신세", "호구짓"]},
+        {"word": "호로자식", "replacement": "XXXX", "variants": ["호로자식새끼"]},
+        {"word": "호로새끼", "replacement": "XXXX", "variants": ["호로자식새끼"]},
+        {"word": "호로잡년", "replacement": "XXXX", "variants": ["호로잡놈"]},
+        {"word": "호로잡놈", "replacement": "XXXX", "variants": ["호로잡년"]},
+        {"word": "호로자슥", "replacement": "XXXX", "variants": ["호로자식"]},
+        {"word": "호로잡것", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡이", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡자식", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡년", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡놈", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아서", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았다", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡을", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡는", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡고", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡으면", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아라", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아요", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아야", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아도", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아서는", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡아야지", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았다고", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았다면", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았는데", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았더니", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았으면", "replacement": "XXXX", "variants": []},
+        {"word": "호로잡았을까", "replacement": "XXXX", "variants": []}
+    ]
+}

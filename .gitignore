@@ -49,6 +49,8 @@ chatbot/chat_log/
 *.json
 !chatbot/templates/*.json
 !chatbot/static/*.json
+!chatbot/emotion_data/**/*.json
+!chatbot/profanity_data/**/*.json
 
 
 .env

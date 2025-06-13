@@ -174,16 +174,16 @@
         }
         
         .current-emotion {
-            font-size: 2em;
-            text-align: center;
-            padding: 25px 10px;
-            margin: 0 0 20px 0;
-            background: #f8f9fa;
-            border-radius: 8px;
+            font-size: 24px;
             font-weight: bold;
-            color: #4a6cfa;
-            flex-shrink: 0;
-            transition: all 0.3s ease; /* 부드러운 전환 효과 */
+            text-align: center;
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
         }
         
         .file-selector {
@@ -363,6 +363,42 @@
             font-size: 0.9em;
         }
         
+        .emotion-display {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f2f5;
+            border-radius: 8px;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+        
+        .emotion-counters {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .emotion-counter {
+            background: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .emotion-counter span {
+            font-weight: bold;
+            margin-left: 5px;
+            color: #4a6cfa;
+        }
+        
         .current-emotion {
             text-align: center;
             margin-top: 25px;
@@ -455,7 +491,17 @@
 
                 <div class="emotion-panel">
                     <h3>현재 감정</h3>
-                    <div class="current-emotion" id="current-emotion">-</div>
+                    <div class="emotion-display">
+                        <div>현재 감정: <span id="current-emotion">감정 분석 중...</span></div>
+                        <div class="emotion-counters" id="emotion-counters">
+                            <div class="emotion-counter">😊 기쁨: <span id="joy-counter">0</span></div>
+                            <div class="emotion-counter">😠 분노: <span id="anger-counter">0</span></div>
+                            <div class="emotion-counter">😢 슬픔: <span id="sadness-counter">0</span></div>
+                            <div class="emotion-counter">😨 두려움: <span id="fear-counter">0</span></div>
+                            <div class="emotion-counter">😲 놀람: <span id="surprise-counter">0</span></div>
+                            <div class="emotion-counter">🤢 혐오: <span id="disgust-counter">0</span></div>
+                        </div>
+                    </div>
                     <div class="status" id="status">테스트를 시작하려면 시나리오를 선택하세요.</div>
                     
                     <!--
@@ -531,47 +577,86 @@
             let testInterval = null;
             let isTestRunning = false;
             
+            // 감정별 색상 및 이모티콘
+            const emotionColors = {
+                '기쁨': '#FFD700',
+                '슬픔': '#5D8AA8',
+                '분노': '#FF4B4B',
+                '불안': '#FFA500',
+                '중립': '#808080',
+                '놀라움': '#9B59B6',
+                '혐오': '#8E44AD',
+                '기대': '#3498DB',
+                '감사': '#2ECC71',
+                '지루함': '#95A5A6',
+                '피로': '#7F8C8D',
+                '두려움': '#722ed1',
+                '놀람': '#9B59B6'
+            };
+            
+            const emotionIcons = {
+                '기쁨': '😊',
+                '슬픔': '😢',
+                '분노': '😠',
+                '불안': '😨',
+                '중립': '😐',
+                '놀라움': '😲',
+                '혐오': '🤢',
+                '기대': '🤩',
+                '감사': '🙏',
+                '지루함': '😑',
+                '피로': '😴',
+                '두려움': '😨',
+                '놀람': '😲'
+            };
+            
+            // 감정 카운터 초기화 함수
+            function resetEmotionCounters() {
+                const counters = document.querySelectorAll('.emotion-counter span');
+                counters.forEach(counter => {
+                    counter.textContent = '0';
+                });
+            }
+
+            // 감정 카운터 업데이트 함수
+            function updateEmotionCounters(emotion) {
+                if (!emotion) return;
+                
+                // 감정에 따라 카운터 ID 매핑
+                const counterMap = {
+                    '기쁨': 'joy-counter',
+                    '분노': 'anger-counter',
+                    '슬픔': 'sadness-counter',
+                    '두려움': 'fear-counter',
+                    '놀람': 'surprise-counter',
+                    '혐오': 'disgust-counter'
+                };
+                
+                const counterId = counterMap[emotion];
+                if (counterId) {
+                    const counter = document.getElementById(counterId);
+                    if (counter) {
+                        counter.textContent = parseInt(counter.textContent) + 1;
+                    }
+                }
+            }
+
             // 감정 표시 함수 - 현재 감정만 표시
             function updateEmotionScores(emotion) {
                 const emotionElement = document.getElementById('current-emotion');
-                emotionElement.textContent = emotion || '-';
                 
-                // 감정에 따른 색상 설정
-                let color = '#4a6cfa'; // 기본 색상
-                switch(emotion) {
-                    case '기쁨':
-                        color = '#52c41a'; // 초록색
-                        break;
-                    case '슬픔':
-                        color = '#1890ff'; // 파란색
-                        break;
-                    case '분노':
-                        color = '#ff4d4f'; // 빨간색
-                        break;
-                    case '두려움':
-                        color = '#722ed1'; // 보라색
-                        break;
-                    case '놀람':
-                        color = '#faad14'; // 주황색
-                        break;
-                    default:
-                        color = '#4a6cfa'; // 기본 색상
+                // 감정이 없거나 정의되지 않은 경우 기본값 설정
+                if (!emotion || !emotionColors[emotion]) {
+                    emotion = '중립';
                 }
                 
-                emotionElement.style.color = color;
+                // 감정 표시 업데이트
+                emotionElement.textContent = `${emotionIcons[emotion] || '😐'} ${emotion}`;
+                emotionElement.style.backgroundColor = `${emotionColors[emotion] || '#808080'}20`; // 20% 투명도
+                emotionElement.style.color = emotionColors[emotion] || '#808080';
                 
-                // 감정 이모티콘 추가 (선택사항)
-                let emoji = '';
-                switch(emotion) {
-                    case '기쁨': emoji = '😊'; break;
-                    case '슬픔': emoji = '😢'; break;
-                    case '분노': emoji = '😠'; break;
-                    case '두려움': emoji = '😨'; break;
-                    case '놀람': emoji = '😲'; break;
-                    default: emoji = '😐';
-                }
-                
-                emotionElement.textContent = `${emotion} ${emoji}`;
+                // 감정이 업데이트될 때마다 카운터 증가
+                updateEmotionCounters(emotion);
             }
 
             // 시나리오 목록 불러오기
@@ -639,6 +724,10 @@
             // 챗봇 응답 생성
             async function generateBotResponse(userMessage) {
                 try {
+                    // 현재 메시지의 감정 가져오기
+                    const currentMessage = currentScenario.messages[currentMessageIndex];
+                    const currentEmotion = currentMessage.emotion || '기쁨';  // 기본값은 '기쁨'
+                    
                     const response = await fetch('/api/chat', {
                         method: 'POST',
                         headers: {
@@ -649,7 +738,8 @@
                             message: userMessage,
                             is_test: true,
                             action: 'message',
-                            is_filtered: false
+                            is_filtered: false,
+                            emotion: currentEmotion  // 현재 감정 추가
                         })
                     });
                     
@@ -688,18 +778,18 @@
                         updateEmotionScores(userMessage.emotion);
                     }
                     
-                    // 챗봇 응답을 기다리기 전에 잠시 대기 (사용자가 메시지를 읽을 시간을 줌)
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // 챗봇 응답을 기다리기 전에 잠시 대기 (대기 시간 단축)
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     
                     // 챗봇 응답 생성 및 표시
                     const botResponse = await generateBotResponse(userMessage.content);
                     addMessage('bot', botResponse);
                     
-                    // 다음 메시지로 이동 (지연 시간 추가)
+                    // 다음 메시지로 이동 (지연 시간 단축)
                     currentMessageIndex++;
                     if (isTestRunning && currentMessageIndex < currentScenario.messages.length) {
-                        // 다음 메시지 전송 전에 잠시 대기
-                        setTimeout(sendNextMessage, 1000);
+                        // 다음 메시지 전송 전에 잠시 대기 (대기 시간 단축)
+                        setTimeout(sendNextMessage, 300);
                     } else {
                         await endTest();
                     }
@@ -713,7 +803,10 @@
             // 테스트 시작
             async function startTest() {
                 const scenarioId = scenarioSelect.value;
-                if (!scenarioId) return;
+                if (!scenarioId) {
+                    alert('시나리오를 선택해주세요.');
+                    return;
+                }
 
                 try {
                     // 테스트 시작 상태로 변경
@@ -721,6 +814,9 @@
                     testControlBtn.textContent = '테스트 종료';
                     testControlBtn.classList.add('btn-danger');
                     scenarioSelect.disabled = true;
+                    
+                    // 감정 카운터 초기화
+                    resetEmotionCounters();
                     
                     // 시나리오 데이터 가져오기
                     const response = await fetch(`/api/test/scenario/${encodeURIComponent(scenarioId)}`);
