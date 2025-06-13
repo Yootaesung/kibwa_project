@@ -289,23 +289,59 @@ class S3Client:
         
         return scenarios
     
-    def get_scenario(self, key: str) -> Optional[dict]:
+    def get_scenario(self, key: str):
         try:
-            print(f"Fetching scenario from S3: {key}")  # 디버깅용 로그 추가
             response = self.s3.get_object(
                 Bucket=self.bucket_name,
                 Key=key
             )
             content = response['Body'].read().decode('utf-8')
-            print(f"Raw S3 content: {content}")  # 디버깅용 로그 추가
-            scenario = json.loads(content)
-            print(f"Parsed scenario: {scenario}")  # 디버깅용 로그 추가
-            return scenario
+            data = json.loads(content)
+            
+            # 다양한 JSON 형식 처리
+            if isinstance(data, dict):
+                # {감정: [...]} 형식인 경우
+                if any(emotion in data for emotion in ['분노', '기쁨', '슬픔', '두려움', '놀람']):
+                    messages = []
+                    for emotion_list in data.values():
+                        if isinstance(emotion_list, list):
+                            for item in emotion_list:
+                                if isinstance(item, dict) and all(field in item for field in 
+                                    ['age_group', 'gender', 'role', 'situation', 'emotion', 'content']):
+                                    messages.append(item)
+                    return messages
+                # 단일 객체인 경우
+                elif all(field in data for field in 
+                        ['age_group', 'gender', 'role', 'situation', 'emotion', 'content']):
+                    return [data]
+                else:
+                    print(f"Invalid data format in scenario {key}")
+                    return []
+            # 리스트 형식인 경우
+            elif isinstance(data, list):
+                # 모든 항목이 올바른 형식인지 확인
+                if all(isinstance(item, dict) and 
+                      all(field in item for field in 
+                          ['age_group', 'gender', 'role', 'situation', 'emotion', 'content'])
+                      for item in data):
+                    return data
+                else:
+                    # 일부 항목만 올바른 형식인 경우 필터링
+                    valid_items = [item for item in data 
+                                if isinstance(item, dict) and 
+                                all(field in item for field in 
+                                    ['age_group', 'gender', 'role', 'situation', 'emotion', 'content'])]
+                    if valid_items:
+                        print(f"Filtered out {len(data) - len(valid_items)} invalid items from {key}")
+                        return valid_items
+                    return []
+            else:
+                print(f"Unsupported data format in scenario {key}")
+                return []
+                
         except Exception as e:
-            print(f"Error getting scenario {key}: {e}")
-            import traceback
-            traceback.print_exc()  # 스택 트레이스 출력
-            return None
+            print(f"Error getting scenario {key}: {str(e)}")
+            return []
 
 s3_client = S3Client()
 
@@ -409,36 +445,29 @@ async def get_test_scenarios():
 async def get_scenario(scenario_key: str):
     """특정 시나리오의 상세 내용을 가져옵니다."""
     try:
-        scenario = s3_client.get_scenario(scenario_key)
-        print(f"Loaded scenario data: {scenario}")  # 디버깅용 로그 추가
-        if not scenario:
-            raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다.")
+        messages = s3_client.get_scenario(scenario_key)
+        print(f"Loaded scenario data: {messages}")  # 디버깅용 로그 추가
         
-        # 모든 메시지를 하나의 리스트로 합침
-        messages = []
-        for emotion, items in scenario.items():
-            if isinstance(items, list):
-                messages.extend(items)
-        
-        # 메시지가 없는 경우 빈 배열로 초기화
         if not messages:
-            messages = []
+            raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없거나 유효하지 않은 형식입니다.")
         
         # 각 메시지의 필수 필드 확인 및 기본값 설정
         for msg in messages:
-            if 'content' not in msg:
-                msg['content'] = msg.get('content', '')
+            msg['content'] = msg.get('content', '')
+            msg['emotion'] = msg.get('emotion', '중립')
         
-        # 시나리오 데이터에 key 필드 추가
+        # 시나리오 데이터 구성
         scenario = {
             'key': scenario_key,
             'messages': messages
         }
         
         return {"scenario": scenario}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error getting scenario {scenario_key}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}")
 
 @app.post("/api/test/save")
 async def save_test_result_endpoint(data: dict):
@@ -532,19 +561,36 @@ async def get_chat_data():
 
 @app.post("/api/chat")
 async def chat(chat_request: ChatRequest, request: Request):
+    # 테스트 모드인 경우 간단한 응답 반환
+    if chat_request.is_test:
+        test_responses = [
+            "네, 그렇군요. 계속 말씀해 주세요.",
+            "이해했어요. 더 자세히 알려주실 수 있나요?",
+            "그런 일이 있었군요. 어떤 느낌이 드셨나요?",
+            "공감이 가네요. 계속 이야기해 주세요.",
+            "그랬군요. 더 말씀해 주실 수 있나요?"
+        ]
+        import random
+        return JSONResponse(content={"response": random.choice(test_responses), "status": "success"})
+    
+    # 일반 채팅 모드
     username = request.cookies.get('user_id')
     if not username:
         raise HTTPException(status_code=401, detail="Not authenticated")
+        
     user_message = chat_request.message.strip()
     if not user_message:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
+    
     # 욕설 필터링 기능 필요시 구현
     chat_context = get_chat_context(username)
     save_chat_message(username, "user", user_message)
+    
     response = chatbot.generate_response(
         user_input=user_message,
         username=username,
         chat_history=chat_context
     )
+    
     save_chat_message(username, "assistant", response)
-    return JSONResponse(content={"response": response, "status": "success"})
+    return {"response": response, "status": "success"}
