@@ -3,10 +3,247 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>테스트 - 감정 인식 챗봇</title>
+    <title>시나리오 테스트 - 감정 인식 챗봇</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-container {
+            width: 80%;
+            max-width: 1000px;
+            min-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            background: #f5f7fa;
+        }
+        
+        .chat-header {
+            background: #4a6cfa;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .home-btn {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            font-size: 1.2em;
+        }
+        
+        .home-btn:hover {
+            opacity: 0.8;
+        }
+        
+        .test-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+        
+        .content-wrapper {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            margin: 20px auto 0;
+            min-height: 0;
+            overflow: hidden;
+            height: 100%;
+            width: 100%;
+            max-width: 1000px;
+            box-sizing: border-box;
+        }
+        
+        .chat-box {
+            flex: 1;
+            min-width: 0; /* flex 아이템이 컨테이너를 넘치지 않도록 */
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-height: 0;
+            scroll-behavior: smooth; /* 부드러운 스크롤 */
+        }
+        
+        /* 스크롤바 스타일링 */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            margin: 0;
+            line-height: 1.5;
+            word-wrap: break-word;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0.6; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .user-message {
+            background: #4a6cfa;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .bot-message {
+            background: #f0f2f5;
+            color: #050505;
+            align-self: flex-start;
+            border-top-left-radius: 4px;
+        }
+        
+        .emotion-panel {
+            flex: 0 0 220px; /* 너비 220px로 조정 */
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .current-emotion {
+            font-size: 2em;
+            text-align: center;
+            padding: 25px 10px;
+            margin: 0 0 20px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #4a6cfa;
+            flex-shrink: 0;
+            transition: all 0.3s ease; /* 부드러운 전환 효과 */
+        }
+        
+        .file-selector {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 30px 40px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+            width: 100%;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+            box-sizing: border-box;
+        }
+        
+        select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        
+        .btn {
+            background: #4a6cfa;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #3a5ce0;
+        }
+        
+        .btn:disabled {
+            background: #d9d9d9;
+            cursor: not-allowed;
+        }
+        
+        .btn-danger {
+            background: #ff4d4f;
+        }
+        
+        .btn-danger:hover {
+            background: #ff7875;
+        }
+        
+        .status {
+            color: #666;
+            font-size: 0.9em;
+            text-align: center;
+            margin: 10px 0;
+            flex-shrink: 0; /* 크기 고정 */
+        }
         .test-container {
             max-width: 1200px;
             margin: 0 auto;
@@ -47,15 +284,19 @@
             padding: 20px;
             overflow-y: auto;
             background: #f8f9fa;
-            min-height: 500px;
+            max-height: 70vh; /* 뷰포트 높이의 70%로 제한 */
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         
         .message {
-            margin-bottom: 15px;
+            margin: 0;
             padding: 12px 16px;
             border-radius: 18px;
             max-width: 80%;
             word-wrap: break-word;
+            word-break: break-word;
             line-height: 1.4;
             position: relative;
         }
@@ -83,6 +324,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
         }
         
         .emotion-panel {
@@ -179,81 +423,87 @@
     </style>
 </head>
 <body>
-    <div class="test-container">
-        <div class="file-selector">
-            <h1>챗봇 테스트</h1>
-            <h2>테스트할 시나리오 선택</h2>
-            <select id="scenario-select">
-                <option value="">시나리오를 선택하세요...</option>
-                <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
-            </select>
-            <div style="margin-top: 15px;">
-                <button id="start-test" class="btn btn-primary" disabled>테스트 시작</button>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-content">
+                <h1>시나리오 테스트</h1>
+                <a href="/" class="home-btn" title="홈으로">
+                    <span class="material-icons">home</span>
+                </a>
             </div>
         </div>
+        
+        <div class="test-container">
+            <div class="file-selector">
+                <h2>테스트할 시나리오 선택</h2>
+                <select id="scenario-select">
+                    <option value="">시나리오를 선택하세요...</option>
+                    <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
+                </select>
+                <div style="margin-top: 15px;">
+                    <button id="test-control" class="btn" disabled>테스트 시작</button>
+                </div>
+            </div>
 
         <div class="test-content">
             <div class="content-wrapper">
-                <div class="chat-container">
-                    <div class="chat-box" id="chat-box">
+                <div class="chat-box">
+                    <div class="chat-messages" id="chat-box">
                         <!-- 채팅 메시지가 여기에 표시됩니다 -->
-                    </div>
-                    <div class="chat-controls">
-                        <button id="end-test" class="btn btn-danger">테스트 종료</button>
-                        <div class="status" id="status">테스트가 진행 중이 아닙니다.</div>
                     </div>
                 </div>
 
                 <div class="emotion-panel">
-                    <h3>감정 상태</h3>
+                    <h3>현재 감정</h3>
+                    <div class="current-emotion" id="current-emotion">-</div>
+                    <div class="status" id="status">테스트를 시작하려면 시나리오를 선택하세요.</div>
+                    
+                    <!--
+                    <h3>감정 분석 결과 (보관용)</h3>
                     <div class="emotion-item">
                         <div class="emotion-header">
                             <span>분노</span>
-                            <span id="emotion-anger">0%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="anger-bar" style="background-color: #ff4d4f;"></div>
+                            <div id="anger-bar" class="progress-fill" style="background-color: #ff4d4f;"></div>
                         </div>
                     </div>
                     <div class="emotion-item">
                         <div class="emotion-header">
                             <span>기쁨</span>
-                            <span id="emotion-joy">0%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="joy-bar" style="background-color: #52c41a;"></div>
+                            <div id="joy-bar" class="progress-fill" style="background-color: #52c41a;"></div>
                         </div>
                     </div>
                     <div class="emotion-item">
                         <div class="emotion-header">
                             <span>슬픔</span>
-                            <span id="emotion-sadness">0%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="sadness-bar" style="background-color: #1890ff;"></div>
+                            <div id="sadness-bar" class="progress-fill" style="background-color: #1890ff;"></div>
                         </div>
                     </div>
                     <div class="emotion-item">
                         <div class="emotion-header">
                             <span>두려움</span>
-                            <span id="emotion-fear">0%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="fear-bar" style="background-color: #722ed1;"></div>
+                            <div id="fear-bar" class="progress-fill" style="background-color: #722ed1;"></div>
                         </div>
                     </div>
                     <div class="emotion-item">
                         <div class="emotion-header">
                             <span>놀람</span>
-                            <span id="emotion-surprise">0%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" id="surprise-bar" style="background-color: #faad14;"></div>
+                            <div id="surprise-bar" class="progress-fill" style="background-color: #faad14;"></div>
                         </div>
                     </div>
                     <div class="current-emotion" id="current-emotion">
                         현재 감정: -
                     </div>
+                    -->
                 </div>
             </div>
         </div>
@@ -264,48 +514,64 @@
             // DOM 요소 가져오기
             const scenarioSelect = document.getElementById('scenario-select');
             const startBtn = document.getElementById('start-test');
-            const endBtn = document.getElementById('end-test');
             const chatBox = document.getElementById('chat-box');
             const statusDiv = document.getElementById('status');
             const testContent = document.querySelector('.test-content');
             
-            // 상태 변수
+            // 테스트 상태 변수
             let currentScenario = null;
-            let messageIndex = 0;
-            let isTestRunning = false;
+            let currentMessageIndex = 0;
             let emotionScores = {
-                '분노': 0,
                 '기쁨': 0,
                 '슬픔': 0,
+                '분노': 0,
                 '두려움': 0,
                 '놀람': 0
             };
-
-            // 감정 점수 업데이트 함수
+            let testInterval = null;
+            let isTestRunning = false;
+            
+            // 감정 표시 함수 - 현재 감정만 표시
             function updateEmotionScores(emotion) {
-                if (!emotionScores.hasOwnProperty(emotion)) return;
+                const emotionElement = document.getElementById('current-emotion');
+                emotionElement.textContent = emotion || '-';
                 
-                // 현재 감정 점수 증가
-                emotionScores[emotion] += 1;
-                
-                // 총합 계산
-                const total = Object.values(emotionScores).reduce((sum, score) => sum + score, 0);
-                
-                // 각 감정의 퍼센테이지 계산 및 업데이트
-                for (const [key, value] of Object.entries(emotionScores)) {
-                    const percentage = Math.round((value / total) * 100);
-                    const emotionId = key === '분노' ? 'anger' : 
-                                     key === '기쁨' ? 'joy' :
-                                     key === '슬픔' ? 'sadness' :
-                                     key === '두려움' ? 'fear' : 'surprise';
-                    
-                    document.getElementById(`emotion-${emotionId}`).textContent = `${percentage}%`;
-                    document.getElementById(`${emotionId}-bar`).style.width = `${percentage}%`;
+                // 감정에 따른 색상 설정
+                let color = '#4a6cfa'; // 기본 색상
+                switch(emotion) {
+                    case '기쁨':
+                        color = '#52c41a'; // 초록색
+                        break;
+                    case '슬픔':
+                        color = '#1890ff'; // 파란색
+                        break;
+                    case '분노':
+                        color = '#ff4d4f'; // 빨간색
+                        break;
+                    case '두려움':
+                        color = '#722ed1'; // 보라색
+                        break;
+                    case '놀람':
+                        color = '#faad14'; // 주황색
+                        break;
+                    default:
+                        color = '#4a6cfa'; // 기본 색상
                 }
                 
-                // 현재 가장 높은 감정 찾기
-                const maxEmotion = Object.entries(emotionScores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
-                document.getElementById('current-emotion').textContent = `현재 감정: ${maxEmotion}`;
+                emotionElement.style.color = color;
+                
+                // 감정 이모티콘 추가 (선택사항)
+                let emoji = '';
+                switch(emotion) {
+                    case '기쁨': emoji = '😊'; break;
+                    case '슬픔': emoji = '😢'; break;
+                    case '분노': emoji = '😠'; break;
+                    case '두려움': emoji = '😨'; break;
+                    case '놀람': emoji = '😲'; break;
+                    default: emoji = '😐';
+                }
+                
+                emotionElement.textContent = `${emotion} ${emoji}`;
             }
 
             // 시나리오 목록 불러오기
@@ -333,7 +599,7 @@
                     
                     // 시나리오 선택 이벤트 리스너
                     scenarioSelect.addEventListener('change', () => {
-                        startBtn.disabled = !scenarioSelect.value;
+                        testControlBtn.disabled = !scenarioSelect.value;
                     });
                     
                 } catch (error) {
@@ -404,7 +670,7 @@
             // 다음 메시지 보내기
             async function sendNextMessage() {
                 if (!isTestRunning || !currentScenario || !currentScenario.messages || 
-                    messageIndex >= currentScenario.messages.length) {
+                    currentMessageIndex >= currentScenario.messages.length) {
                     console.log('테스트 종료. isTestRunning:', isTestRunning, 
                                 'has currentScenario:', !!currentScenario,
                                 'messages length:', currentScenario?.messages?.length);
@@ -414,7 +680,7 @@
 
                 try {
                     // 사용자 메시지 보내기
-                    const userMessage = currentScenario.messages[messageIndex];
+                    const userMessage = currentScenario.messages[currentMessageIndex];
                     addMessage('user', userMessage.content);
                     
                     // 감정이 있으면 업데이트
@@ -430,8 +696,8 @@
                     addMessage('bot', botResponse);
                     
                     // 다음 메시지로 이동 (지연 시간 추가)
-                    messageIndex++;
-                    if (isTestRunning && messageIndex < currentScenario.messages.length) {
+                    currentMessageIndex++;
+                    if (isTestRunning && currentMessageIndex < currentScenario.messages.length) {
                         // 다음 메시지 전송 전에 잠시 대기
                         setTimeout(sendNextMessage, 1000);
                     } else {
@@ -446,12 +712,18 @@
 
             // 테스트 시작
             async function startTest() {
-                const scenarioKey = scenarioSelect.value;
-                if (!scenarioKey) return;
+                const scenarioId = scenarioSelect.value;
+                if (!scenarioId) return;
 
                 try {
+                    // 테스트 시작 상태로 변경
+                    isTestRunning = true;
+                    testControlBtn.textContent = '테스트 종료';
+                    testControlBtn.classList.add('btn-danger');
+                    scenarioSelect.disabled = true;
+                    
                     // 시나리오 데이터 가져오기
-                    const response = await fetch(`/api/test/scenario/${encodeURIComponent(scenarioKey)}`);
+                    const response = await fetch(`/api/test/scenario/${encodeURIComponent(scenarioId)}`);
                     const data = await response.json();
                     
                     if (!response.ok) {
@@ -459,35 +731,18 @@
                     }
                     
                     // 상태 초기화
-                    currentScenario = data.scenario;  // data.scenario로 수정
-                    messageIndex = 0;
-                    
-                    console.log('Loaded scenario:', currentScenario);  // 디버깅용 로그
-                    isTestRunning = true;
+                    currentScenario = data.scenario;
+                    currentMessageIndex = 0;
                     chatBox.innerHTML = '';
                     statusDiv.textContent = '테스트 진행 중...';
+                    
+                    console.log('Loaded scenario:', currentScenario);  // 디버깅용 로그
                     testContent.style.display = 'block';
                     
-                    // 감정 점수 초기화
-                    emotionScores = {
-                        '분노': 0,
-                        '기쁨': 0,
-                        '슬픔': 0,
-                        '두려움': 0,
-                        '놀람': 0
-                    };
-                    
-                    // UI 업데이트
-                    document.querySelectorAll('.progress-fill').forEach(el => {
-                        el.style.width = '0%';
-                    });
-                    
-                    document.querySelectorAll('[id^="emotion-"]').forEach(el => {
-                        if (el.id.includes('-bar')) return;
-                        el.textContent = '0%';
-                    });
-                    
-                    document.getElementById('current-emotion').textContent = '현재 감정: -';
+                    // 현재 감정 초기화
+                    const emotionElement = document.getElementById('current-emotion');
+                    emotionElement.textContent = '-';
+                    emotionElement.style.color = '#4a6cfa'; // 기본 색상으로 초기화
                     
                     // 첫 번째 메시지 전송
                     sendNextMessage();
@@ -502,8 +757,33 @@
 
             // 테스트 종료
             async function endTest() {
+                // 테스트 중지
+                if (testInterval) {
+                    clearInterval(testInterval);
+                    testInterval = null;
+                }
+                
+                // 테스트 종료 상태로 변경
                 isTestRunning = false;
-                statusDiv.textContent = '테스트가 완료되었습니다.';
+                testControlBtn.textContent = '테스트 시작';
+                testControlBtn.classList.remove('btn-danger');
+                scenarioSelect.disabled = false;
+                
+                // 현재 메시지 인덱스만 초기화 (시나리오 선택은 유지)
+                currentMessageIndex = 0;
+                
+                // 채팅 내용은 유지 (초기화하지 않음)
+                
+                // 마지막 감정 유지 (초기화하지 않음)
+                
+                statusDiv.textContent = '테스트가 종료되었습니다. 다시 시작하려면 [테스트 시작] 버튼을 누르세요.';
+                
+                // 시나리오 선택이 변경되면 상태 메시지 초기화
+                const resetStatus = () => {
+                    statusDiv.textContent = '테스트를 시작하려면 [테스트 시작] 버튼을 누르세요.';
+                    scenarioSelect.removeEventListener('change', resetStatus);
+                };
+                scenarioSelect.addEventListener('change', resetStatus);
                 
                 try {
                     // 테스트 결과 저장 (필요한 경우)
@@ -521,9 +801,16 @@
                 }
             }
 
-            // 이벤트 리스너 등록
-            startBtn.addEventListener('click', startTest);
-            endBtn.addEventListener('click', endTest);
+            // 테스트 컨트롤 버튼 (시작/종료 토글)
+            const testControlBtn = document.getElementById('test-control');
+            
+            testControlBtn.addEventListener('click', function() {
+                if (isTestRunning) {
+                    endTest();
+                } else {
+                    startTest();
+                }
+            });
 
             // 초기화
             loadScenarios();
