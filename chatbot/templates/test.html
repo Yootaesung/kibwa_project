@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>테스트 - 감정 인식 챗봇</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         .test-container {
             max-width: 800px;
@@ -81,9 +82,33 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .chat-header {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .header-content {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .home-btn {
+            text-decoration: none;
+            color: #333;
+        }
     </style>
 </head>
 <body>
+    <div class="chat-header">
+        <div class="header-content">
+            <h1>테스트 - 감정 인식 챗봇</h1>
+            <a href="/" id="home-btn" class="home-btn">
+                <span class="material-icons">home</span>
+            </a>
+        </div>
+    </div>
     <div class="test-container">
         <h1>챗봇 테스트</h1>
         
