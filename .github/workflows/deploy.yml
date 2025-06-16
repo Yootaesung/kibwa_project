@@ -3,6 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -27,39 +28,53 @@ jobs:
         key: ${{ secrets.KEY }}
         port: ${{ secrets.PORT || 22 }}
         script: |
+          echo "=== Starting deployment ==="
+          
           # 필요한 디렉토리 생성
           mkdir -p ~/deploy
           cd ~/deploy
+          echo "Current directory: $(pwd)"
           
           # 기존 디렉토리 삭제 및 새로 클론
+          echo "Cloning repository..."
           rm -rf kibwa_project
           git clone https://github.com/Yootaesung/kibwa_project.git
           
           cd kibwa_project/chatbot
+          echo "Current directory: $(pwd)"
+          ls -la
           
           # Node.js 및 PM2 설치
+          echo "Installing Node.js and PM2..."
           curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
           sudo apt-get update
           sudo apt-get install -y nodejs
           sudo npm install -g pm2
           
           # Python 3.8+ 및 pip 설치
+          echo "Installing Python and pip..."
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip python3-venv
           
           # Python 가상 환경 설정
+          echo "Setting up Python virtual environment..."
           python3 -m venv venv
           source venv/bin/activate
           
           # 의존성 설치
+          echo "Installing Python dependencies..."
           pip install --upgrade pip
           pip install -r requirements.txt
           
           # PM2로 앱 재시작
+          echo "Restarting application with PM2..."
           pm2 delete fastapi-chatbot || true
           pm2 start ecosystem.config.js
           pm2 save
           
           # PM2 부팅 시 자동 시작 설정
+          echo "Setting up PM2 startup..."
           sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ${{ secrets.USERNAME }} --hp /home/${{ secrets.USERNAME }}
           pm2 save
+          
+          echo "=== Deployment completed successfully ==="
