@@ -42,6 +42,16 @@ jobs:
           # requirements.txt가 있는 디렉토리로 이동
           cd chatbot
           
+          # Node.js 및 PM2 설치
+          curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+          sudo apt-get update
+          sudo apt-get install -y nodejs
+          sudo npm install -g pm2
+          
+          # Python 3.8+ 및 pip 설치
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip python3-venv
+          
           # Python 가상 환경 설정
           python3 -m venv venv
           source venv/bin/activate
@@ -50,15 +60,12 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           
-          # Node.js 및 PM2 설치
-          curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          sudo npm install -g pm2
-          
           # PM2로 앱 재시작
           pm2 delete fastapi-chatbot || true
+          cd /home/ubuntu/deploy/kibwa_project/chatbot
           pm2 start ecosystem.config.js
+          pm2 save
           
           # PM2 부팅 시 자동 시작 설정
+          sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
           pm2 save
-          pm2 startup
