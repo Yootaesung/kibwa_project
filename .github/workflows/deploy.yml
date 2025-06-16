@@ -22,7 +22,7 @@ jobs:
         key: ${{ secrets.KEY }}
         port: ${{ secrets.PORT || 22 }}
         script: |
-          cd ~/deploy/chatbot
+          cd ~/deploy/kibwa_project
           git pull origin main  # 또는 master
           
           # Python 가상 환경 설정
