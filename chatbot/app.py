@@ -4,7 +4,7 @@ import hashlib
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 
 import boto3
@@ -496,6 +496,56 @@ async def save_test_result_endpoint(data: dict):
         return {"status": "success", "filepath": filepath}
     except Exception as e:
         print(f"Error saving test result: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/test/save_chat_logs")
+async def save_chat_logs(data: dict):
+    """테스트 채팅 로그를 저장합니다."""
+    try:
+        scenario_key = data.get('scenario_key')
+        messages = data.get('messages', [])
+        
+        if not scenario_key:
+            raise HTTPException(status_code=400, detail="시나리오 키가 필요합니다.")
+        
+        # 파일명 생성 (S3 파일명 + _chat_logs)
+        base_name = os.path.basename(scenario_key).replace('.json', '')
+        filename = f"{base_name}_chat_logs.json"
+        filepath = os.path.join(TEST_RESULTS_DIR, filename)
+        
+        # 디렉토리 생성 (필요한 경우)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # 한국 시간대 설정
+        kst = timezone(timedelta(hours=9))
+        
+        # 채팅 로그 데이터 준비 (사용자 메시지만 필터링)
+        chat_logs = []
+        for msg in messages:
+            if msg.get('role') == 'user':
+                chat_logs.append({
+                    'timestamp': datetime.now(kst).isoformat(),  # 한국 시간대 사용
+                    'message': msg.get('content', ''),
+                    'emotion': msg.get('emotion', '중립')
+                })
+        
+        # 기존 파일이 있으면 로드하고, 없으면 새로 생성
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+        else:
+            existing_data = []
+        
+        # 기존 데이터에 새로운 로그 추가
+        existing_data.extend(chat_logs)
+        
+        # 파일 저장
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+        
+        return {"status": "success", "filepath": filepath}
+    except Exception as e:
+        print(f"Error saving chat logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/register")

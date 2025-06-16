@@ -882,16 +882,61 @@
                 scenarioSelect.addEventListener('change', resetStatus);
                 
                 try {
-                    // 테스트 결과 저장 (필요한 경우)
-                    // await fetch('/api/test/save', {
-                    //     method: 'POST',
-                    //     headers: { 'Content-Type': 'application/json' },
-                    //     body: JSON.stringify({
-                    //         scenarioId: currentScenario?.id,
-                    //         messages: currentMessages,
-                    //         emotionScores
-                    //     })
-                    // });
+                    // 채팅 로그 저장
+                    if (currentScenario) {
+                        // 채팅 메시지 수집
+                        const messages = [];
+                        const messageElements = document.querySelectorAll('.message');
+                        
+                        messageElements.forEach(el => {
+                            const role = el.classList.contains('user-message') ? 'user' : 'bot';
+                            const content = el.textContent.trim();
+                            
+                            // 사용자 메시지일 경우에만 감정 정보 추가
+                            if (role === 'user') {
+                                // 현재 메시지의 감정 가져오기 (시나리오에 정의된 감정 사용)
+                                let emotion = '중립';
+                                
+                                // 현재 메시지의 인덱스 찾기
+                                const messageIndex = Array.from(messageElements).indexOf(el);
+                                const userMessageIndex = Math.floor(messageIndex / 2); // 사용자 메시지의 인덱스 (0부터 시작)
+                                
+                                // 시나리오에서 해당 메시지의 감정 가져오기
+                                if (currentScenario && 
+                                    currentScenario.messages && 
+                                    currentScenario.messages[userMessageIndex] &&
+                                    currentScenario.messages[userMessageIndex].emotion) {
+                                    emotion = currentScenario.messages[userMessageIndex].emotion;
+                                }
+                                
+                                messages.push({
+                                    role,
+                                    content,
+                                    emotion: emotion
+                                });
+                            } else {
+                                messages.push({
+                                    role,
+                                    content
+                                });
+                            }
+                        });
+                        
+                        // 서버에 채팅 로그 저장 요청
+                        const response = await fetch('/api/test/save_chat_logs', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                scenario_key: currentScenario.key,
+                                messages: messages
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            const error = await response.json().catch(() => ({}));
+                            console.error('채팅 로그 저장 실패:', error);
+                        }
+                    }
                 } catch (error) {
                     console.error('테스트 결과 저장 중 오류 발생:', error);
                 }
