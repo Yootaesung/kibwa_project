@@ -78,37 +78,3 @@ jobs:
           sudo docker ps -a
           
           echo "=== Deployment completed successfully ==="
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.KEY }}
-        port: ${{ secrets.PORT || 22 }}
-        script: |
-          # 도커 설치 (없는 경우)
-          sudo apt-get update
-          sudo apt-get install -y docker.io
-          sudo systemctl start docker
-          sudo systemctl enable docker
-          
-          # 도커 컴포즈 설치
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          
-          # 도커 허브 로그인
-          echo ${{ secrets.DOCKERHUB_TOKEN }} | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-          
-          # 프로젝트 디렉토리로 이동
-          mkdir -p ~/deploy/kibwa_project
-          cd ~/deploy/kibwa_project
-          
-          # 저장소 클론 (없는 경우)
-          if [ ! -d "chatbot" ]; then
-            git clone https://github.com/Yootaesung/kibwa_project.git .
-          fi
-          
-          # 최신 코드 가져오기
-          git pull origin main
-          
-          # 도커 컨테이너 실행
-          cd chatbot
-          sudo docker-compose down
-          sudo docker-compose pull
-          sudo docker-compose up -d
