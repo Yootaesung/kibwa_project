@@ -26,7 +26,8 @@ RUN npm install -g pm2
 COPY . .
 
 # Python 의존성 설치
-RUN pip install --no-cache-dir -r requirements.txt
+RUN if [ -f "requirements.txt" ]; then pip install --no-cache-dir -r requirements.txt; fi
+RUN if [ -f "chatbot/requirements.txt" ]; then pip install --no-cache-dir -r chatbot/requirements.txt; fi
 
 # 필요한 포트 노출
 EXPOSE 8000
