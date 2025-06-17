@@ -1,30 +1,39 @@
-module.exports = {
-  apps: [{
-    name: 'kibwa-chatbot',
-    script: 'app.js',
-    interpreter: 'node',
-    instances: 1,
-    autorestart: true,
-    watch: false,
-    max_memory_restart: '1G',
-    env: {
-      NODE_ENV: 'production',
-      PATH: process.env.PATH,
-      VIRTUAL_ENV: '/work/venv',
-      PYTHONUNBUFFERED: '1'
-    },
-    env_production: {
-      NODE_ENV: 'production',
-      PATH: process.env.PATH,
-      VIRTUAL_ENV: '/work/venv',
-      PYTHONUNBUFFERED: '1'
-    },
-    cwd: '/work/kibwa_project/chatbot',
-    log_date_format: 'YYYY-MM-DD HH:mm:ss',
-    error_file: 'logs/error.log',
-    out_file: 'logs/out.log',
-    merge_logs: true,
-    exec_mode: 'fork',
-    time: true
-  }]
-};
+const express = require('express');
+const { spawn } = require('child_process');
+const path = require('path');
+const app = express();
+
+// 정적 파일 서빙
+app.use(express.static(path.join(__dirname, 'templates')));
+app.use(express.json());
+
+// FastAPI 프록시
+app.use('/api', (req, res) => {
+  const python = spawn('python3', ['-m', 'uvicorn', 'app:app', '--host', '0.0.0.0', '--port', '8001']);
+  
+  let responseData = '';
+  python.stdout.on('data', (data) => {
+    responseData += data.toString();
+  });
+
+  python.stderr.on('data', (data) => {
+    console.error(`stderr: ${data}`);
+  });
+
+  python.on('close', (code) => {
+    if (code !== 0) {
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+    res.send(responseData);
+  });
+});
+
+// 루트 경로
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'templates', 'test.html'));
+});
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

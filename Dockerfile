@@ -1,36 +1,16 @@
-# Python 및 Node.js 기반 이미지 사용
-FROM node:18-slim
+FROM node:18-alpine
+WORKDIR /app
 
-# Python 설치를 위한 의존성 추가
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
-    gcc \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+# 앱 의존성 설치
+COPY package*.json ./
+RUN npm install
 
-# 작업 디렉토리 설정
-WORKDIR /work
-
-# Python 가상 환경 설정
-RUN python3 -m venv /work/venv
-ENV VIRTUAL_ENV=/work/venv
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# PM2 전역 설치
-RUN npm install -g pm2
-
-# 애플리케이션 코드 복사
+# 소스 코드 복사
 COPY . .
 
-# Python 의존성 설치
-RUN if [ -f "requirements.txt" ]; then pip install --no-cache-dir -r requirements.txt; fi
-RUN if [ -f "chatbot/requirements.txt" ]; then pip install --no-cache-dir -r chatbot/requirements.txt; fi
-
-# 필요한 포트 노출
+# 8000 포트 노출
 EXPOSE 8000
 
-# PM2를 사용하여 애플리케이션 실행
-CMD ["pm2-runtime", "app.js"]
+# PM2로 앱 실행
+RUN npm install -g pm2
+CMD ["pm2-runtime", "chatbot/app.js"]
