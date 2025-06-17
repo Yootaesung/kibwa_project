@@ -374,10 +374,9 @@
         
         .emotion-counters {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 10px;
-            width: 100%;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
         }
         
         .emotion-counter {
@@ -399,15 +398,16 @@
             color: #4a6cfa;
         }
         
-        .current-emotion {
-            text-align: center;
-            margin-top: 25px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
+
+        
+        .emotion-toggle {
+            background: #4a6cfa;
+            color: white;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
         }
         
         .btn {
@@ -456,6 +456,44 @@
             color: #666;
             font-size: 0.9em;
         }
+        
+        .emotion-toggle {
+            background: #4a6cfa;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+        
+        .emotion-toggle:hover {
+            background: #3a5cea;
+        }
+        
+        .emotion-toggle .material-icons {
+            font-size: 1.2em;
+            transition: transform 0.3s ease;
+        }
+        
+        .emotion-toggle.collapsed .material-icons {
+            transform: rotate(-90deg);
+        }
+        
+        .emotion-container {
+            max-height: 400px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+            padding: 0 10px;
+        }
+        
+        .emotion-container.collapsed {
+            max-height: 0;
+        }
     </style>
 </head>
 <body>
@@ -490,9 +528,16 @@
                 </div>
 
                 <div class="emotion-panel">
-                    <h3>현재 감정</h3>
-                    <div class="emotion-display">
-                        <div>현재 감정: <span id="current-emotion">감정 분석 중...</span></div>
+                    <button id="emotion-toggle-btn" class="emotion-toggle collapsed">
+                        <span class="material-icons">expand_more</span>
+                        감정 분석 보기
+                    </button>
+                    
+                    <div id="emotion-container" class="emotion-container collapsed">
+                        <div class="emotion-display">
+                            <div>현재 감정: <span id="current-emotion">감정 분석 중...</span></div>
+                        </div>
+                        
                         <div class="emotion-counters" id="emotion-counters">
                             <div class="emotion-counter">😊 기쁨: <span id="joy-counter">0</span></div>
                             <div class="emotion-counter">😠 분노: <span id="anger-counter">0</span></div>
@@ -502,54 +547,8 @@
                             <div class="emotion-counter">🤢 혐오: <span id="disgust-counter">0</span></div>
                         </div>
                     </div>
-                    <div class="status" id="status">테스트를 시작하려면 시나리오를 선택하세요.</div>
                     
-                    <!--
-                    <h3>감정 분석 결과 (보관용)</h3>
-                    <div class="emotion-item">
-                        <div class="emotion-header">
-                            <span>분노</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="anger-bar" class="progress-fill" style="background-color: #ff4d4f;"></div>
-                        </div>
-                    </div>
-                    <div class="emotion-item">
-                        <div class="emotion-header">
-                            <span>기쁨</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="joy-bar" class="progress-fill" style="background-color: #52c41a;"></div>
-                        </div>
-                    </div>
-                    <div class="emotion-item">
-                        <div class="emotion-header">
-                            <span>슬픔</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="sadness-bar" class="progress-fill" style="background-color: #1890ff;"></div>
-                        </div>
-                    </div>
-                    <div class="emotion-item">
-                        <div class="emotion-header">
-                            <span>두려움</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="fear-bar" class="progress-fill" style="background-color: #722ed1;"></div>
-                        </div>
-                    </div>
-                    <div class="emotion-item">
-                        <div class="emotion-header">
-                            <span>놀람</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="surprise-bar" class="progress-fill" style="background-color: #faad14;"></div>
-                        </div>
-                    </div>
-                    <div class="current-emotion" id="current-emotion">
-                        현재 감정: -
-                    </div>
-                    -->
+                    <div class="status" id="status">테스트를 시작하려면 시나리오를 선택하세요.</div>
                 </div>
             </div>
         </div>
@@ -654,6 +653,8 @@
                 emotionElement.textContent = `${emotionIcons[emotion] || '😐'} ${emotion}`;
                 emotionElement.style.backgroundColor = `${emotionColors[emotion] || '#808080'}20`; // 20% 투명도
                 emotionElement.style.color = emotionColors[emotion] || '#808080';
+                
+
                 
                 // 감정이 업데이트될 때마다 카운터 증가
                 updateEmotionCounters(emotion);
@@ -779,7 +780,7 @@
                     }
                     
                     // 챗봇 응답을 기다리기 전에 잠시 대기 (대기 시간 단축)
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, 100));
                     
                     // 챗봇 응답 생성 및 표시
                     const botResponse = await generateBotResponse(userMessage.content);
@@ -789,7 +790,7 @@
                     currentMessageIndex++;
                     if (isTestRunning && currentMessageIndex < currentScenario.messages.length) {
                         // 다음 메시지 전송 전에 잠시 대기 (대기 시간 단축)
-                        setTimeout(sendNextMessage, 300);
+                        setTimeout(sendNextMessage, 100);
                     } else {
                         await endTest();
                     }
@@ -942,6 +943,15 @@
                 }
             }
 
+            // 감정 분석 토글 버튼
+            const emotionToggleBtn = document.getElementById('emotion-toggle-btn');
+            const emotionContainer = document.getElementById('emotion-container');
+            
+            emotionToggleBtn.addEventListener('click', function() {
+                this.classList.toggle('collapsed');
+                emotionContainer.classList.toggle('collapsed');
+            });
+            
             // 테스트 컨트롤 버튼 (시작/종료 토글)
             const testControlBtn = document.getElementById('test-control');
             
