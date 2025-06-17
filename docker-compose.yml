@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   kibwa-chatbot:
-    image: ${DOCKER_HUB_USERNAME}/kibwa/chatbot:latest
+    image: ${DOCKERHUB_USERNAME}/kibwa-chatbot:latest
     container_name: kibwa-chatbot
     restart: unless-stopped
     ports:
