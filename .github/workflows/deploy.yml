@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   APP_DOCKER_IMAGE_NAME: kibwa/chatbot
   AWS_REGION: ap-northeast-2
   EC2_HOST: ${{ secrets.HOST }}
@@ -28,15 +28,15 @@ jobs:
     - name: Login to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ env.DOCKER_HUB_USERNAME }}
-        password: ${{ env.DOCKER_HUB_TOKEN }}
+        username: ${{ env.DOCKERHUB_USERNAME }}
+        password: ${{ env.DOCKERHUB_TOKEN }}
 
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v4
       with:
         context: .
         push: true
-        tags: ${{ env.DOCKER_HUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+        tags: ${{ env.DOCKERHUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -79,7 +79,7 @@ jobs:
           fi
           
           # Docker Hub 로그인
-          echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           
           # 기존 컨테이너 중지 및 제거
           echo "Stopping and removing existing containers..."
@@ -88,7 +88,7 @@ jobs:
           
           # 최신 Docker 이미지 가져오기
           echo "Pulling the latest Docker image..."
-          docker pull ${{ env.DOCKER_HUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+          docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
           
           # 새 컨테이너 실행
           echo "Starting new container..."
@@ -100,7 +100,7 @@ jobs:
             -v /etc/timezone:/etc/timezone:ro \
             --memory="512m" \
             --cpus="0.5" \
-            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.APP_DOCKER_IMAGE_NAME }}:latest
           
           # 사용하지 않는 이미지 정리
           echo "Cleaning up unused Docker resources..."
