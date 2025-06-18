@@ -22,12 +22,17 @@ jobs:
         username: ${{ env.DOCKER_HUB_USERNAME }}
         password: ${{ env.DOCKER_HUB_TOKEN }}
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: ${{ env.APP_IMAGE }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -38,16 +43,24 @@ jobs:
         port: ${{ secrets.PORT || '22' }}
         script: |
           echo "--- Pulling latest image ---"
-          docker pull ${{ env.APP_IMAGE }}:latest
+          docker pull ${{ env.APP_IMAGE }}:latest || true
           
-          echo "--- Stopping old container ---"
+          echo "--- Stopping and removing old container ---"
           docker stop kibwa-chatbot || true
           docker rm kibwa-chatbot || true
           
           echo "--- Creating necessary directories ---"
-          sudo mkdir -p /work/kibwa_project/chatbot/member_information
-          sudo mkdir -p /work/kibwa_project/chatbot/emotion_data
-          sudo mkdir -p /work/kibwa_project/chatbot/profanity_data
+          mkdir -p /work/kibwa_project/chatbot/member_information
+          mkdir -p /work/kibwa_project/chatbot/emotion_data
+          mkdir -p /work/kibwa_project/chatbot/profanity_data
+          mkdir -p /work/kibwa_project/chatbot/chat_logs
+          
+          echo "--- Starting new container ---"
+          cd /work/kibwa_project
+          docker-compose -f docker-compose.prod.yml up -d
+          
+          echo "--- Cleaning up ---"
+          docker system prune -f
           sudo mkdir -p /work/kibwa_project/chatbot/logs
           sudo mkdir -p /work/kibwa_project/chatbot/chat_logs
           
