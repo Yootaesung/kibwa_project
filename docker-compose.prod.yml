@@ -4,21 +4,34 @@ services:
   app:
     image: yootaesung/kibwa-chatbot:latest
     container_name: kibwa-chatbot
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
-      - ./chatbot/member_information:/app/chatbot/member_information
-      - ./chatbot/emotion_data:/app/chatbot/emotion_data
-      - ./chatbot/profanity_data:/app/chatbot/profanity_data
-      - ./chatbot/chat_logs:/app/chatbot/chat_logs
+      - /work/kibwa_project/chatbot/member_information:/app/chatbot/member_information
+      - /work/kibwa_project/chatbot/emotion_data:/app/chatbot/emotion_data
+      - /work/kibwa_project/chatbot/profanity_data:/app/chatbot/profanity_data
+      - /work/kibwa_project/chatbot/chat_logs:/app/chatbot/chat_logs
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 512M

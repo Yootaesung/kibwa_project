@@ -4,6 +4,7 @@ on:
   push:
     branches: [ main ]
 
+
 env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
@@ -33,6 +34,8 @@ jobs:
         tags: ${{ env.APP_IMAGE }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          BUILDKIT_INLINE_CACHE=1
 
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -42,25 +45,34 @@ jobs:
         key: ${{ secrets.KEY }}
         port: ${{ secrets.PORT || '22' }}
         script: |
-          echo "--- Pulling latest image ---"
-          docker pull ${{ env.APP_IMAGE }}:latest || true
+          set -e  # 오류 발생 시 스크립트 중단
           
-          echo "--- Stopping and removing old container ---"
-          docker stop kibwa-chatbot || true
-          docker rm kibwa-chatbot || true
+          # 배포 스크립트 다운로드 및 실행 권한 부여
+          echo "--- Downloading deployment script ---"
+          curl -o /tmp/deploy.sh https://raw.githubusercontent.com/${{ github.repository }}/main/deploy.sh
+          chmod +x /tmp/deploy.sh
           
-          echo "--- Creating necessary directories ---"
-          mkdir -p /work/kibwa_project/chatbot/member_information
-          mkdir -p /work/kibwa_project/chatbot/emotion_data
-          mkdir -p /work/kibwa_project/chatbot/profanity_data
-          mkdir -p /work/kibwa_project/chatbot/chat_logs
+          # 환경 변수 설정
+          export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
+          export AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          export AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}"
+          export DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
+          export DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
           
-          echo "--- Starting new container ---"
-          cd /work/kibwa_project
-          docker-compose -f docker-compose.prod.yml up -d
+          # 배포 스크립트 실행
+          echo "--- Starting deployment ---"
+          /tmp/deploy.sh
           
-          echo "--- Cleaning up ---"
-          docker system prune -f
+          # 컨테이너 로그 확인
+          echo "--- Container logs ---"
+          docker logs kibwa-chatbot --tail 50 2>&1 || echo "No container logs available"
+          
+          # 디스크 사용량 확인
+          echo "--- Disk usage ---"
+          df -h
+          
+          echo "✅ Deployment completed successfully"
           sudo mkdir -p /work/kibwa_project/chatbot/logs
           sudo mkdir -p /work/kibwa_project/chatbot/chat_logs
           
