@@ -3,40 +3,34 @@ name: Deploy to EC2
 on:
   push:
     branches: [ main ]
-
+  workflow_dispatch:
 
 env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  APP_IMAGE: yootaesung/kibwa-chatbot
+  APP_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-
+      uses: actions/checkout@v3
+      
     - name: Login to Docker Hub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v2
       with:
-        username: ${{ env.DOCKER_HUB_USERNAME }}
-        password: ${{ env.DOCKER_HUB_TOKEN }}
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+        
+    - name: Build and push
+      uses: docker/build-push-action@v4
       with:
         context: .
         push: true
         tags: ${{ env.APP_IMAGE }}:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        build-args: |
-          BUILDKIT_INLINE_CACHE=1
-
+        
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
       with:
@@ -45,11 +39,10 @@ jobs:
         key: ${{ secrets.KEY }}
         port: ${{ secrets.PORT || '22' }}
         script: |
-          set -e  # 오류 발생 시 스크립트 중단
+          set -e
           
-          # 배포 스크립트 다운로드 및 실행 권한 부여
-          echo "--- Downloading deployment script ---"
-          curl -o /tmp/deploy.sh https://raw.githubusercontent.com/${{ github.repository }}/main/deploy.sh
+          # 배포 스크립트 다운로드
+          curl -sSL -o /tmp/deploy.sh https://raw.githubusercontent.com/${{ github.repository }}/main/deploy.sh
           chmod +x /tmp/deploy.sh
           
           # 환경 변수 설정
@@ -61,24 +54,12 @@ jobs:
           export DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
           
           # 배포 스크립트 실행
-          echo "--- Starting deployment ---"
           /tmp/deploy.sh
-          
-          # 컨테이너 로그 확인
-          echo "--- Container logs ---"
-          docker logs kibwa-chatbot --tail 50 2>&1 || echo "No container logs available"
-          
-          # 디스크 사용량 확인
-          echo "--- Disk usage ---"
-          df -h
-          
-          echo "✅ Deployment completed successfully"
           sudo mkdir -p /work/kibwa_project/chatbot/logs
           sudo mkdir -p /work/kibwa_project/chatbot/chat_logs
           
           echo "--- Setting permissions ---"
           sudo chown -R ${{ secrets.USERNAME }}:${{ secrets.USERNAME }} /work/kibwa_project
-          
           echo "--- Starting new container ---"
           docker run -d \
             --name kibwa-chatbot \
