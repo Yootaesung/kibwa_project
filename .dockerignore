@@ -1,103 +1,57 @@
-# Ignore everything by default
-*
-
-# Allow only necessary files
-!Dockerfile
-!ecosystem.config.js
-!requirements.txt
-!setup.py
-!pytest.ini
-!docker-compose*
-
-# Allow chatbot directory but exclude large files
-!chatbot/
-chatbot/*/
-!chatbot/*.py
-!chatbot/requirements.txt
-!chatbot/__init__.py
-
-# Whitelist specific directories
-!config/
-!config/*.py
-!utils/
-!utils/*.py
-
-# Allow only specific files in root
-!README.md
-!setup-ec2.sh
-!cleanup.sh
-
-# Always ignore these
-**/__pycache__
-**/*.py[cod]
-**/*.so
-**/.DS_Store
-**/*.log
-**/node_modules
-**/.git
-**/.github
-**/.vscode
-**/.idea
-**/*.sqlite3
-**/*.db
-**/*.sql
-**/*.sqlite
-**/*.sqlite3-journal
-**/*.log
-**/*.bak
-**/*.swp
-**/*.swo
-*~
-# Large data directories (excluding emotion_data which is required)
-**/chat_logs/**
-**/profanity_data/**
-**/member_information/**
-**/test_chat_logs/**
-
-# Node
-**/node_modules/
-**/npm-debug.log*
-
 # Git
-.git/
+.git
 .gitignore
 
-# Docker
-**/docker-compose*.yml
-**/Dockerfile
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
 
 # Local development
-.local/
-.cache/
-.coverage
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.python-version
+.env
+.env.local
 
-# OS generated files
+# Test files
+test_chat_logs/
+
+# Node.js (필요 없는 경우)
+node_modules/
+package*.json
+
+# macOS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
+
+# Windows
 Thumbs.db
-
-# Project specific
-chatbot/__pycache__/
-chatbot/*.pyc
-chatbot/.pytest_cache/
-chatbot/.mypy_cache/
-chatbot/.coverage
-chatbot/htmlcov/
-
-# Logs and databases
-*.log
-*.sql
-*.sqlite
-**/.pytest_cache/
-**/htmlcov/
-**/.mypy_cache/
-**/.pytest_cache/
-**/.tox/
