@@ -34,11 +34,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
-          # 빌드 캐시 사용
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
