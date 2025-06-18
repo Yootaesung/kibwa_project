@@ -1,19 +1,16 @@
 #!/bin/bash
 
 # 앱 디렉토리로 이동
-cd ~/deploy/chatbot
-
-# 가상 환경 활성화
-source venv/bin/activate
+cd /app/chatbot
 
 # 로그 디렉토리 생성
-mkdir -p logs
+mkdir -p /app/logs
 
 # 환경 변수 설정
-export PYTHONPATH=$PYTHONPATH:$(pwd)
+export PYTHONPATH=/app
 
-# 로컬 IP 주소 가져오기
-LOCAL_IP=$(hostname -I | awk '{print $1}')
+# 로컬 IP 주소 가져오기 (컨테이너 내부 IP)
+LOCAL_IP=$(hostname -i)
 
 echo "========================================"
 echo "Starting FastAPI Chatbot on:"

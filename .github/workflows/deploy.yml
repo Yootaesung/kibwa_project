@@ -2,59 +2,70 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+
+env:
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+  APP_DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot
+  EC2_HOST: ${{ secrets.HOST }}
+  EC2_USERNAME: ${{ secrets.USERNAME }}
+  EC2_KEY: ${{ secrets.KEY }}
+  PORT: ${{ secrets.PORT || '22' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+        uses: actions/checkout@v4
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ env.DOCKER_HUB_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v3
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot:latest
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache
+          tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+          cache: true
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.KEY }}
-          port: ${{ secrets.PORT || '22' }}
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USERNAME }}
+          key: ${{ env.EC2_KEY }}
+          port: ${{ env.PORT }}
           script: |
             set -e
-            cd /work/kibwa_project
-            echo "Logging in to Docker Hub..."
-            echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
-            echo "Pulling latest image..."
-            docker-compose -f docker-compose.prod.yml pull
-            echo "Stopping and removing existing containers..."
-            docker-compose -f docker-compose.prod.yml down
-            echo "Starting new containers..."
-            docker-compose -f docker-compose.prod.yml up -d
-            echo "Cleaning up..."
+            echo "--- Logging in to Docker Hub ---"
+            echo ${{ env.DOCKER_HUB_TOKEN }} | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
+            
+            echo "--- Pulling Latest App Image ---"
+            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            
+            echo "--- Stopping and Removing Old Container ---"
+            docker stop kibwa-chatbot || true
+            docker rm kibwa-chatbot || true
+            
+            echo "--- Running New Container ---"
+            docker run -d \
+              --name kibwa-chatbot \
+              --restart always \
+              -p 8000:8000 \
+              -v /work/kibwa_project/chat_logs:/app/chat_logs \
+              -v /work/kibwa_project/member_information:/app/member_information \
+              -v /work/kibwa_project/emotion_data:/app/emotion_data \
+              -v /work/kibwa_project/profanity_data:/app/profanity_data \
+              -e PYTHONUNBUFFERED=1 \
+              -e PYTHONDONTWRITEBYTECODE=1 \
+              ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            
+            echo "--- Cleaning up unused Docker images ---"
             docker system prune -f
         timeout-minutes: 30

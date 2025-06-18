@@ -7,8 +7,7 @@ module.exports = {
     watch: false,
     env: {
       NODE_ENV: "production",
-      PYTHONUNBUFFERED: "1",
-      PYTHONPATH: "/app"
+      PYTHONUNBUFFERED: "1"
     },
     error_file: "/app/logs/error.log",
     out_file: "/app/logs/out.log",
@@ -19,7 +18,7 @@ module.exports = {
     max_memory_restart: "1G",
     listen_timeout: 10000,
     max_restarts: 10,
-    max_memory_restart: "1G",
-    network_mode: "host"
+    min_uptime: "5s",
+    max_restart_delay: 3000
   }]
-}
+};
