@@ -47,7 +47,13 @@
    ```env
    OPENAI_API_KEY=your_openai_api_key_here
    SECRET_KEY=your_secret_key_here
-   DEBUG=True
+   DEBUG=False  # Production에서는 False로 설정
+   
+   # AWS 설정
+   AWS_ACCESS_KEY_ID=your_aws_access_key
+   AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+   AWS_DEFAULT_REGION=ap-northeast-2
+   AWS_S3_BUCKET=your-s3-bucket-name
    ```
 
 ## 🛠️ 사용 방법

@@ -44,6 +44,16 @@ jobs:
           docker stop kibwa-chatbot || true
           docker rm kibwa-chatbot || true
           
+          echo "--- Creating necessary directories ---"
+          sudo mkdir -p /work/kibwa_project/chatbot/member_information
+          sudo mkdir -p /work/kibwa_project/chatbot/emotion_data
+          sudo mkdir -p /work/kibwa_project/chatbot/profanity_data
+          sudo mkdir -p /work/kibwa_project/chatbot/logs
+          sudo mkdir -p /work/kibwa_project/chatbot/chat_logs
+          
+          echo "--- Setting permissions ---"
+          sudo chown -R ${{ secrets.USERNAME }}:${{ secrets.USERNAME }} /work/kibwa_project
+          
           echo "--- Starting new container ---"
           docker run -d \
             --name kibwa-chatbot \
@@ -51,5 +61,7 @@ jobs:
             -v /work/kibwa_project/chatbot/member_information:/app/chatbot/member_information \
             -v /work/kibwa_project/chatbot/emotion_data:/app/chatbot/emotion_data \
             -v /work/kibwa_project/chatbot/profanity_data:/app/chatbot/profanity_data \
+            -v /work/kibwa_project/chatbot/logs:/app/chatbot/logs \
+            -v /work/kibwa_project/chatbot/chat_logs:/app/chatbot/chat_logs \
             --restart always \
             ${{ env.APP_IMAGE }}:latest
