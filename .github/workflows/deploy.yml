@@ -26,7 +26,18 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot:latest
         
-    - name: Deploy to EC2
+    - name: Copy files to EC2
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.KEY }}
+        port: ${{ secrets.PORT || '22' }}
+        source: "docker-compose.prod.yml,deploy.sh"
+        target: "/work/kibwa_project/"
+        strip_components: 1
+
+    - name: Execute deploy script
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.HOST }}
@@ -35,10 +46,8 @@ jobs:
         port: ${{ secrets.PORT || '22' }}
         script: |
           set -e
-          
-          # 배포 스크립트 다운로드
-          curl -sSL -o /tmp/deploy.sh https://raw.githubusercontent.com/${{ github.repository }}/main/deploy.sh
-          chmod +x /tmp/deploy.sh
+          cd /work/kibwa_project
+          chmod +x deploy.sh
           
           # 환경 변수 설정
           export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
@@ -49,4 +58,4 @@ jobs:
           export DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
           
           # 배포 스크립트 실행
-          /tmp/deploy.sh
+          ./deploy.sh
