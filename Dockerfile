@@ -26,5 +26,5 @@ EXPOSE 8000
 # 필요한 디렉토리 생성
 RUN mkdir -p /app/chat_logs /app/emotion_data /app/member_information /app/profanity_data
 
-# 애플리케이션 실행
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# 애플리케이션 실행 (chatbot 디렉토리의 app 모듈 실행)
+CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000"]
