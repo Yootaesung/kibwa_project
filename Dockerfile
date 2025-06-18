@@ -1,44 +1,32 @@
-# Build stage
-FROM python:3.9-slim as builder
+# 경량화된 베이스 이미지 사용
+FROM python:3.9-slim
 
-WORKDIR /app
-
-# Install build dependencies
+# 필요한 시스템 패키지만 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy all requirements files
-COPY requirements*.txt ./
-COPY chatbot/requirements*.txt ./chatbot/
-
-# Install Python dependencies
-RUN pip install --user -r requirements.txt
-RUN pip install --user -r chatbot/requirements.txt
-
-# Runtime stage
-FROM python:3.9-slim
-
+# 작업 디렉토리 설정
 WORKDIR /app
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
-COPY --from=builder /app/requirements*.txt ./
-COPY --from=builder /app/chatbot/requirements*.txt ./chatbot/
+# 의존성 파일 복사
+COPY requirements.txt .
+COPY chatbot/requirements.txt ./chatbot_requirements.txt
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+# 의존성 설치 (캐시 최적화)
+RUN pip install --no-cache-dir -r requirements.txt -r chatbot_requirements.txt
 
-# Copy application code
-COPY . .
+# 필요한 파일만 복사
+COPY chatbot ./chatbot
+COPY config ./config
+COPY utils ./utils
 
-# Set environment variables
-ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/app
+# 불필요한 파일 제거
+RUN find /usr/local -type f -name '*.pyc' -delete && \
+    find /usr/local -type d -name '__pycache__' -delete
 
-# Expose port
+# 포트 노출
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# 실행 명령
+CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000"]
