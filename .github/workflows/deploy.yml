@@ -1,75 +1,48 @@
-name: 🚀 Fast Deploy
+name: 🚀 Ultra Fast Deploy
 
 on:
   push:
     branches: [main]
 
-env:
-  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  APP_DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot
-  EC2_HOST: ${{ secrets.HOST }}
-  EC2_USERNAME: ${{ secrets.USERNAME }}
-  EC2_KEY: ${{ secrets.KEY }}
-  PORT: ${{ secrets.PORT || '22' }}
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
     steps:
-      - name: ⬇️ Checkout code
+      - name: 🔍 Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-      - name: 🔑 Login to Docker Hub
+      - name: 🔐 Docker Login
         uses: docker/login-action@v3
         with:
-          username: ${{ env.DOCKER_HUB_USERNAME }}
-          password: ${{ env.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: 🐳 Build and Push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
-          build-args: BUILDKIT_INLINE_CACHE=1
-          cache-from: type=registry,ref=${{ env.APP_DOCKER_IMAGE_NAME }}:buildcache
-          cache-to: type=inline,mode=max
+      - name: 🏗️ Build & Push
+        run: |
+          IMAGE=${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot:latest
+          
+          # Build and push in one step
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $IMAGE \
+            --push \
+            .
 
-      - name: 🚀 Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
-        timeout-minutes: 15  # 타임아웃 15분으로 증가
-        with:
-          host: ${{ env.EC2_HOST }}
-          username: ${{ env.EC2_USERNAME }}
-          key: ${{ env.EC2_KEY }}
-          port: ${{ env.PORT }}
-          command_timeout: '14m'  # 명령어 타임아웃 14분으로 증가
-          script: |
-            set -e
-            echo "🚀 Starting deployment..."
-            
-            # Docker Hub 로그인 (에러 무시)
-            echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin || true
-            
-            # 기존 컨테이너 정리 (에러 무시)
+          
+          # Deploy via SSH
+          ssh -o "StrictHostKeyChecking=no" \
+              -p ${{ secrets.PORT || '22' }} \
+              ${{ secrets.USERNAME }}@${{ secrets.HOST }} "
+            docker pull $IMAGE
             docker rm -f kibwa-chatbot 2>/dev/null || true
-            
-            # 최신 이미지 가져오기 (에러 무시)
-            docker pull --quiet ${{ env.APP_DOCKER_IMAGE_NAME }}:latest || true
-            
-            # 새 컨테이너 실행
             docker run -d \
               --name kibwa-chatbot \
               -p 8000:8000 \
               --restart unless-stopped \
               -v /home/ubuntu/.aws:/root/.aws \
-              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-              -e AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }} \
-              -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-              ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
-            
-            # 빠른 종료를 위해 정리 작업 생략
-            echo "⚡ Deployment completed!"
-            docker ps -f name=kibwa-chatbot --format "{{.Names}} ({{.Status}})"
+              $IMAGE
+          "
