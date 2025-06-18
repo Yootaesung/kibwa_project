@@ -40,36 +40,60 @@ jobs:
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
+        timeout-minutes: 15
         with:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
           port: ${{ env.PORT }}
+          script_stop: true
+          script_timeout: '12m'
           script: |
             set -e
-            echo "--- Logging in to Docker Hub ---"
-            echo ${{ env.DOCKER_HUB_TOKEN }} | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin
+            echo "🚀 Starting deployment..."
             
-            echo "--- Pulling Latest App Image ---"
-            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            # Docker Hub 로그인
+            echo "🔑 Logging in to Docker Hub..."
+            echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ env.DOCKER_HUB_USERNAME }} --password-stdin || {
+              echo "❌ Failed to login to Docker Hub"
+              exit 1
+            }
             
-            echo "--- Stopping and Removing Old Container ---"
-            docker stop kibwa-chatbot || true
-            docker rm kibwa-chatbot || true
+            # 기존 컨테이너 정리
+            echo "🗑️ Cleaning up existing container..."
+            docker stop kibwa-chatbot 2>/dev/null || echo "ℹ️ No running container to stop"
+            docker rm kibwa-chatbot 2>/dev/null || echo "ℹ️ No container to remove"
             
-            echo "--- Running New Container ---"
-            docker run -d \
+            # 최신 이미지 가져오기
+            echo "⬇️ Pulling latest image..."
+            if ! docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest; then
+              echo "❌ Failed to pull Docker image"
+              exit 1
+            fi
+            
+            # 새 컨테이너 실행
+            echo "🚀 Starting new container..."
+            if docker run -d \
               --name kibwa-chatbot \
-              --restart always \
               -p 8000:8000 \
-              -v /work/kibwa_project/chat_logs:/app/chat_logs \
-              -v /work/kibwa_project/member_information:/app/member_information \
-              -v /work/kibwa_project/emotion_data:/app/emotion_data \
-              -v /work/kibwa_project/profanity_data:/app/profanity_data \
-              -e PYTHONUNBUFFERED=1 \
-              -e PYTHONDONTWRITEBYTECODE=1 \
-              ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+              --restart unless-stopped \
+              -v /home/ubuntu/.aws:/root/.aws \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              -e AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }} \
+              -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              ${{ env.APP_DOCKER_IMAGE_NAME }}:latest; then
+              
+              echo "✅ Container started successfully!"
+              echo "📊 Container status:"
+              docker ps -f name=kibwa-chatbot --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
+            else
+              echo "❌ Failed to start container"
+              exit 1
+            fi
             
-            echo "--- Cleaning up unused Docker images ---"
-            docker system prune -f
-        timeout-minutes: 30
+            # 불필요한 이미지 정리 (오래된 이미지만 삭제)
+            echo "🧹 Cleaning up unused Docker images..."
+            docker system prune -f --filter "until=24h"
+            
+            echo "🎉 Deployment completed successfully! 🎉"
