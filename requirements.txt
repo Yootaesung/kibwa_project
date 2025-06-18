@@ -10,3 +10,4 @@ pydantic>=1.8.2
 sqlalchemy>=1.4.23
 pymysql>=1.0.2
 python-jose>=3.3.0
+pydantic-settings>=2.0.0

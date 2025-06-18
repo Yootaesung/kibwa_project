@@ -8,10 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy all requirements files
+COPY requirements*.txt ./
+COPY chatbot/requirements*.txt ./chatbot/
 
 # Install Python dependencies
-COPY requirements.txt .
 RUN pip install --user -r requirements.txt
+RUN pip install --user -r chatbot/requirements.txt
 
 # Runtime stage
 FROM python:3.9-slim
@@ -20,7 +23,8 @@ WORKDIR /app
 
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /root/.local
-COPY --from=builder /app/requirements.txt .
+COPY --from=builder /app/requirements*.txt ./
+COPY --from=builder /app/chatbot/requirements*.txt ./chatbot/
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,4 +41,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Run the application
-CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
