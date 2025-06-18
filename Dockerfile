@@ -24,8 +24,6 @@ COPY . .
 # Create log dir
 RUN mkdir -p /app/logs
 
-    && mkdir -p /app/logs
-
 # Expose port
 EXPOSE 8000
 
