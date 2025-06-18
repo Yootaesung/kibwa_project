@@ -3,83 +3,100 @@
 .gitignore
 
 # Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+**/__pycache__
+**/*.py[cod]
+**/*.pyc
+**/*.pyd
+**/*.pyo
+**/*.so
+**/.Python
+**/build/
+**/develop-eggs/
+**/dist/
+**/downloads/
+**/eggs/
+**/.eggs/
+**/lib/
+**/lib64/
+**/parts/
+**/sdist/
+**/var/
+**/wheels/
+**/*.egg-info/
+**/.installed.cfg
+**/*.egg
+
+# Virtual Environment
+**/venv/
+**/ENV/
+**/env/
+**/.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+**/logs/
+**/*.log
+**/npm-debug.log*
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Project specific
+chatbot/chat_logs/
+chatbot/emotion_data/
+chatbot/member_information/
+chatbot/test_chat_logs/
 
 # Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+**/node_modules/
+**/npm-debug.log*
 
-# Environment
-.env
-venv/
-env/
-.venv/
-.tox/
+# Git
+.git/
+.gitignore
+
+# Docker
+**/docker-compose*.yml
+**/Dockerfile
+
+# Local development
+.local/
+.cache/
 .coverage
 htmlcov/
 .pytest_cache/
 .mypy_cache/
-*.log
-*.sqlite3
-*.db
+.python-version
+
+# OS generated files
 .DS_Store
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Project specific
+chatbot/__pycache__/
+chatbot/*.pyc
+chatbot/.pytest_cache/
+chatbot/.mypy_cache/
+chatbot/.coverage
+chatbot/htmlcov/
 
-# Logs
-logs/
+# Logs and databases
 *.log
-
-# Local development
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Docker
-Dockerfile
-.dockerignore
-docker-compose*.yml
-docker-compose*/
-**/.DS_Store
-**/__pycache__
-**/*.pyc
-**/*.pyo
-**/*.pyd
-.Python
-**/*.so
-**/.coverage
-**/coverage/
+*.sql
+*.sqlite
 **/.pytest_cache/
 **/htmlcov/
 **/.mypy_cache/
