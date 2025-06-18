@@ -38,13 +38,13 @@ jobs:
 
       - name: 🚀 Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
-        timeout-minutes: 10
+        timeout-minutes: 15  # 타임아웃 15분으로 증가
         with:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
           port: ${{ env.PORT }}
-          command_timeout: '8m'
+          command_timeout: '14m'  # 명령어 타임아웃 14분으로 증가
           script: |
             set -e
             echo "🚀 Starting deployment..."
@@ -56,7 +56,7 @@ jobs:
             docker rm -f kibwa-chatbot 2>/dev/null || true
             
             # 최신 이미지 가져오기 (에러 무시)
-            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest || true
+            docker pull --quiet ${{ env.APP_DOCKER_IMAGE_NAME }}:latest || true
             
             # 새 컨테이너 실행
             docker run -d \
