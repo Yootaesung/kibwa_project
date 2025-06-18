@@ -5,11 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  APP_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -29,7 +24,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ env.APP_IMAGE }}:latest
+        tags: ${{ secrets.DOCKER_HUB_USERNAME }}/kibwa-chatbot:latest
         
     - name: Deploy to EC2
       uses: appleboy/ssh-action@master
@@ -55,19 +50,3 @@ jobs:
           
           # 배포 스크립트 실행
           /tmp/deploy.sh
-          sudo mkdir -p /work/kibwa_project/chatbot/logs
-          sudo mkdir -p /work/kibwa_project/chatbot/chat_logs
-          
-          echo "--- Setting permissions ---"
-          sudo chown -R ${{ secrets.USERNAME }}:${{ secrets.USERNAME }} /work/kibwa_project
-          echo "--- Starting new container ---"
-          docker run -d \
-            --name kibwa-chatbot \
-            -p 8000:8000 \
-            -v /work/kibwa_project/chatbot/member_information:/app/chatbot/member_information \
-            -v /work/kibwa_project/chatbot/emotion_data:/app/chatbot/emotion_data \
-            -v /work/kibwa_project/chatbot/profanity_data:/app/chatbot/profanity_data \
-            -v /work/kibwa_project/chatbot/logs:/app/chatbot/logs \
-            -v /work/kibwa_project/chatbot/chat_logs:/app/chatbot/chat_logs \
-            --restart always \
-            ${{ env.APP_IMAGE }}:latest

@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    image: yootaesung/kibwa-chatbot:latest
+    image: ${DOCKER_HUB_USERNAME}/kibwa-chatbot:latest
     container_name: kibwa-chatbot
     restart: unless-stopped
     ports:
@@ -10,8 +10,5 @@ services:
     volumes:
       - /work/kibwa_project/chatbot/member_information:/app/chatbot/member_information
       - /work/kibwa_project/chatbot/chat_logs:/app/chatbot/chat_logs
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    env_file:
+      - .env
