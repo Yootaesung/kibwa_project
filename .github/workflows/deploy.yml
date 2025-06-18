@@ -23,6 +23,8 @@ jobs:
             cd /work/kibwa_project
             echo "Logging in to Docker Hub..."
             echo ${{ secrets.DOCKER_HUB_TOKEN }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+            echo "Setting environment variables..."
+            export DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
             echo "Pulling latest image..."
             docker-compose -f docker-compose.prod.yml pull
             echo "Stopping and removing existing containers..."
