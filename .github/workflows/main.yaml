@@ -1,30 +1,16 @@
-name: Deploy Node.js MVC App to EC2
+name: Deploy Chatbot App to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
-  # Docker Hub 사용자명을 포함한 전체 이미지 경로 지정
   APP_DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/chatbot_app
-
-  AWS_REGION: ap-southeast-2
-  EC2_HOST: ${{ secrets.HOST }}
-  EC2_USERNAME: ${{ secrets.USERNAME }}
-  EC2_KEY: ${{ secrets.KEY }}
-  
-  # KIBWA05 S3 버킷 접근을 위한 환경 변수
-  KIBWA05_ACCESS_KEY_ID: ${{ secrets.KIBWA05_ACCESS_KEY_ID }}
-  KIBWA05_SECRET_ACCESS_KEY: ${{ secrets.KIBWA05_SECRET_ACCESS_KEY }}
-  KIBWA05_DEFAULT_REGION: ap-northeast-3
-  
-  # 기본 AWS S3 버킷 접근을 위한 환경 변수
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_DEFAULT_REGION: ap-southeast-2
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+  EC2_KEY: ${{ secrets.EC2_KEY }}
 
 jobs:
   build-and-deploy:
@@ -36,11 +22,8 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ env.DOCKER_HUB_TOKEN }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -49,9 +32,6 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
-          # 캐시 제거
-          no-cache: true
-          # 빌드 인자 (필요한 경우에만 추가)
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -59,48 +39,36 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
-          port: 22  # 명시적으로 22번 포트 사용
+          port: 22
           script: |
             echo "--- Pulling Latest App Image ---"
-            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest || echo "Failed to pull image, will try to build locally"
+            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
             
-            echo "--- Stopping and Removing Old App Container ---"
-            docker stop chatbot_app 2>/dev/null || true
-            docker rm chatbot_app 2>/dev/null || true
+            echo "--- Stopping and Removing Old Container ---"
+            docker stop chatbot_app || true
+            docker rm chatbot_app || true
             
-            echo "--- Running New App Container ---"
+            echo "--- Running New Container ---"
             docker run -d \
               --name chatbot_app \
+              --restart always \
               -p 8000:8000 \
-              --restart unless-stopped \
-              # OpenAI API 키
               -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
-              
-              # KIBWA05 (kibwa-05) - 챗봇 데이터용
               -e KIBWA05_ACCESS_KEY_ID="${{ secrets.KIBWA05_ACCESS_KEY_ID }}" \
               -e KIBWA05_SECRET_ACCESS_KEY="${{ secrets.KIBWA05_SECRET_ACCESS_KEY }}" \
               -e KIBWA05_DEFAULT_REGION="ap-northeast-3" \
               -e KIBWA05_BUCKET="kibwa-05" \
               -e KIBWA05_PREFIX="project/" \
-              
-              # AWS (kibwa-12) - 테스트 시나리오용
               -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
               -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
               -e AWS_DEFAULT_REGION="ap-southeast-2" \
               -e TEST_BUCKET="kibwa-12" \
               -e TEST_PREFIX="project/" \
-              
-              # 로그 디렉토리만 마운트 (S3를 사용하므로 데이터 디렉토리는 마운트하지 않음)
               -v /home/ec2-user/logs:/app/chatbot/logs \
-              
-              # 도커 이미지
               ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
             
             echo "--- Container Status ---"
-            docker ps -a | grep chatbot_app
+            docker ps -a
             
-            echo "--- Cleaning up unused Docker images ---"
-            docker image prune -f
-            
-            echo "--- Cleaning up unused Docker images ---"
+            echo "--- Cleaning up ---"
             docker system prune -f
