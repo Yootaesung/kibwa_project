@@ -40,9 +40,9 @@ OpenAI의 GPT 모델을 기반으로 하며, 사용자의 텍스트 입력에서
 MIT 라이센스
 """
 
-from chatbot.chatbot import SimpleChatbot as EmotionAwareChatbot
-from chatbot.config import settings
-from chatbot.config.logger import logger
+from .app import SimpleChatbot as EmotionAwareChatbot  # 상대 경로로 수정
+from .config import settings
+from .config.logger import logger
 
 # 버전 정보
 __version__ = "0.1.0"
@@ -53,6 +53,7 @@ __license__ = "MIT"
 __all__ = [
     'EmotionAwareChatbot',
     'settings',
+    'logger',
     '__version__',
     '__author__',
     '__license__'
