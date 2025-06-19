@@ -253,13 +253,29 @@ class EndChatRequest(BaseModel):
 # 5.1 S3 클라이언트 설정
 # ---------------------------
 class S3Client:
-    def __init__(self):
-        # 환경 변수에서 자격 증명 가져오기
-        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-        region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
+    def __init__(self, bucket_type='chatbot'):
+        """
+        S3 클라이언트 초기화
         
-        print(f"Initializing S3 client with:\nAccess Key: {aws_access_key_id[:4]}...\nRegion: {region_name}")
+        Args:
+            bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
+        """
+        if bucket_type == 'chatbot':
+            # 챗봇 데이터용 S3 버킷 (kibwa-05)
+            aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
+            aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
+            region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
+            self.bucket_name = 'kibwa-05'
+            self.prefix = 'project/'
+        else:
+            # 테스트 시나리오용 S3 버킷 (kibwa-12)
+            aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+            aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+            region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
+            self.bucket_name = 'kibwa-12'
+            self.prefix = 'project/'
+        
+        print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
         
         # S3 클라이언트 초기화
         self.s3 = boto3.client(
@@ -268,8 +284,6 @@ class S3Client:
             aws_secret_access_key=aws_secret_access_key,
             region_name=region_name
         )
-        self.bucket_name = 'kibwa-12'
-        self.prefix = 'project/'
     
     def list_scenarios(self):
         response = self.s3.list_objects_v2(
