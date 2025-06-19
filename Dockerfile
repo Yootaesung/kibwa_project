@@ -21,7 +21,6 @@ RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 COPY ./chatbot/ /app/chatbot/
 COPY ./config/ /app/config/
 COPY setup.py /app/
-COPY run.py /app/
 
 # 환경 변수 설정 (필요한 경우 기본값 설정)
 ENV PYTHONPATH="${PYTHONPATH}:/app"
