@@ -39,7 +39,7 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
-          port: 22
+          port: 22 
           script: |
             echo "--- Pulling Latest App Image ---"
             docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
