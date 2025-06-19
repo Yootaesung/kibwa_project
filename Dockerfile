@@ -17,9 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 필요한 디렉토리 생성 (정적 파일과 템플릿은 여전히 필요할 수 있으므로 유지)
 RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 
-# 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
+# 필요한 파일 및 디렉토리 복사
 COPY ./chatbot/ /app/chatbot/
-# config 디렉토리는 chatbot/ 하위에 있으므로 별도로 복사할 필요 없음
+# config 디렉토리 복사
+COPY ./config/ /app/config/
 
 # Python 경로 설정
 ENV PYTHONPATH="${PYTHONPATH}:/app"
