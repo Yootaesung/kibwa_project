@@ -8,14 +8,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 의존성 설치
-COPY chatbot/requirements.txt .
+# 의존성 설치 (의존성 파일만 먼저 복사하여 캐시 활용)
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사
-COPY chatbot/app.py .
-COPY chatbot/templates/ ./templates/
-COPY chatbot/static/ ./static/
+# 애플리케이션 코드 복사 (필요한 파일만 복사)
+COPY chatbot/ /app/chatbot/
+COPY config/ /app/config/
+
+# 필요한 디렉토리 생성
+RUN mkdir -p /app/logs
+
+# 환경 변수 설정
+ENV PYTHONPATH=/app
+
+# 작업 디렉토리 설정
+WORKDIR /app/chatbot
 
 # 포트 노출
 EXPOSE 8000
