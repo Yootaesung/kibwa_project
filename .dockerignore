@@ -18,6 +18,35 @@ lib/
 lib64/
 parts/
 sdist/
+
+# Node
+node_modules/
+npm-debug.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local development
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+.coverage
+htmlcov/
+
+# Data directories
+chat_logs/
+emotion_data/
+profanity_data/
+member_information/
+test_chat_logs/
+
+# Keep config directory
+!config/
 var/
 wheels/
 *.egg-info/

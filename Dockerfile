@@ -18,9 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 
 # 필요한 파일 및 디렉토리 복사
-COPY ./chatbot/ /app/chatbot/
-# config 디렉토리 복사
-COPY ./config/ /app/config/
+COPY . /app/
+
+# 작업 디렉토리 설정
+WORKDIR /app
 
 # Python 경로 설정
 ENV PYTHONPATH="${PYTHONPATH}:/app"
