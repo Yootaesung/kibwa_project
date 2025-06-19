@@ -14,7 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사
+# 필요한 디렉토리 구조 생성
+RUN mkdir -p /app/chatbot/templates /app/chatbot/static/css /app/chatbot/static/js /app/chatbot/static/images
+
+# 정적 파일 및 템플릿 복사
+COPY chatbot/static/ /app/chatbot/static/
+COPY chatbot/templates/ /app/chatbot/templates/
+
+# 나머지 애플리케이션 코드 복사
 COPY . .
 
 # Python이 모듈을 찾을 수 있도록 경로 추가
@@ -23,8 +30,11 @@ ENV PYTHONPATH="${PYTHONPATH}:/app"
 # 8000 포트 노출
 EXPOSE 8000
 
-# 필요한 디렉토리 생성
+# 필요한 데이터 디렉토리 생성
 RUN mkdir -p /app/chat_logs /app/emotion_data /app/member_information /app/profanity_data
+
+# 파일 권한 설정
+RUN chmod -R 755 /app/chatbot/static /app/chatbot/templates
 
 # 애플리케이션 실행 (chatbot 디렉토리의 app 모듈 실행)
 CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000"]
