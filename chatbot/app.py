@@ -251,18 +251,18 @@ class S3Client:
         """
         if bucket_type == 'chatbot':
             # 챗봇 데이터용 S3 버킷 (kibwa-05)
+            self.bucket_name = os.getenv('KIBWA05_BUCKET', 'kibwa-05')
+            self.prefix = os.getenv('KIBWA05_PREFIX', 'project/')
             aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
             aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
-            region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
-            self.bucket_name = 'kibwa-05'
-            self.prefix = 'project/'
+            region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
         else:
             # 테스트 시나리오용 S3 버킷 (kibwa-12)
+            self.bucket_name = os.getenv('TEST_BUCKET', 'kibwa-12')
+            self.prefix = os.getenv('TEST_PREFIX', 'project/')
             aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
             aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
             region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
-            self.bucket_name = 'kibwa-12'
-            self.prefix = 'project/'
         
         print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
         

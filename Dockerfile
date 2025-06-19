@@ -11,34 +11,36 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 환경 변수 선언 (런타임에 주입받을 변수들)
-ENV KIBWA05_DEFAULT_REGION="ap-northeast-3" \
-    AWS_DEFAULT_REGION="ap-southeast-2" \
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH="${PYTHONPATH}:/app" \
+    
+    # 챗봇 데이터용 S3 (kibwa-05)
     KIBWA05_ACCESS_KEY_ID="" \
-    KIBWA05_SECRET_ACCESS_KEY=""
+    KIBWA05_SECRET_ACCESS_KEY="" \
+    KIBWA05_DEFAULT_REGION="ap-northeast-3" \
+    KIBWA05_BUCKET="kibwa-05" \
+    KIBWA05_PREFIX="project/" \
+    
+    # 테스트 시나리오용 S3 (kibwa-12)
+    AWS_ACCESS_KEY_ID="" \
+    AWS_SECRET_ACCESS_KEY="" \
+    AWS_DEFAULT_REGION="ap-southeast-2" \
+    TEST_BUCKET="kibwa-12" \
+    TEST_PREFIX="project/"
 
-# S3 버킷 환경 변수
-ENV S3_BUCKET="kibwa-05" \
-    S3_PREFIX="project/"
-
-# 의존성 설치
-COPY requirements.txt .
+# 의존성 파일 복사 및 설치
+COPY chatbot/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 필요한 디렉토리 생성 (S3를 사용하므로 로컬 디렉토리는 임시용으로만 사용)
-RUN mkdir -p /app/chatbot/temp /app/chatbot/logs
-
-# 로그 디렉토리 권한 설정
-RUN chmod -R 777 /app/chatbot/logs
-
-# 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
+# 애플리케이션 코드 복사
 COPY ./chatbot/ /app/chatbot/
-# config 디렉토리는 chatbot/ 하위에 있으므로 별도로 복사할 필요 없음
 
-# Python 경로 설정
-ENV PYTHONPATH="${PYTHONPATH}:/app"
+# 로그 디렉토리 생성
+RUN mkdir -p /app/chatbot/logs && \
+    chmod -R 777 /app/chatbot/logs
 
 # 8000 포트 노출
 EXPOSE 8000
 
-# 애플리케이션 실행 (chatbot 디렉토리의 app 모듈 실행)
-CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# 애플리케이션 실행
+CMD ["uvicorn", "chatbot.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

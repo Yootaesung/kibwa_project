@@ -59,43 +59,48 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
-          port: ${{ secrets.PORT }}
+          port: 22  # 명시적으로 22번 포트 사용
           script: |
             echo "--- Pulling Latest App Image ---"
-            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest || echo "Failed to pull image, will try to build locally"
             
             echo "--- Stopping and Removing Old App Container ---"
-            docker stop chatbot_app || true
-            docker rm chatbot_app || true
+            docker stop chatbot_app 2>/dev/null || true
+            docker rm chatbot_app 2>/dev/null || true
             
             echo "--- Running New App Container ---"
-            # 기존 컨테이너가 실행 중이면 중지하고 제거
-            docker stop chatbot_app || true
-            docker rm chatbot_app || true
-            
-            # 새 컨테이너 실행 (환경 변수 추가)
             docker run -d \
-              --restart always \
               --name chatbot_app \
               -p 8000:8000 \
-              -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-              # KIBWA05 자격 증명 (chatbot 데이터용 S3 버킷 접근)
-              -e KIBWA05_ACCESS_KEY_ID=${{ secrets.KIBWA05_ACCESS_KEY_ID }} \
-              -e KIBWA05_SECRET_ACCESS_KEY=${{ secrets.KIBWA05_SECRET_ACCESS_KEY }} \
-              -e KIBWA05_DEFAULT_REGION=ap-northeast-3 \
-              # AWS 자격 증명 (테스트 시나리오용 S3 버킷 접근)
-              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-              -e AWS_DEFAULT_REGION=ap-southeast-2 \
-              # 볼륨 마운트 (데이터 지속성 보장)
-              -v /home/ec2-user/chat_logs:/app/chatbot/chat_logs \
-              -v /home/ec2-user/test_chat_logs:/app/chatbot/test_chat_logs \
-              -v /home/ec2-user/member_information:/app/chatbot/member_information \
-              -v /home/ec2-user/emotion_data:/app/chatbot/emotion_data \
-              -v /home/ec2-user/profanity_data:/app/chatbot/profanity_data \
+              --restart unless-stopped \
+              # OpenAI API 키
+              -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              
+              # KIBWA05 (kibwa-05) - 챗봇 데이터용
+              -e KIBWA05_ACCESS_KEY_ID="${{ secrets.KIBWA05_ACCESS_KEY_ID }}" \
+              -e KIBWA05_SECRET_ACCESS_KEY="${{ secrets.KIBWA05_SECRET_ACCESS_KEY }}" \
+              -e KIBWA05_DEFAULT_REGION="ap-northeast-3" \
+              -e KIBWA05_BUCKET="kibwa-05" \
+              -e KIBWA05_PREFIX="project/" \
+              
+              # AWS (kibwa-12) - 테스트 시나리오용
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_DEFAULT_REGION="ap-southeast-2" \
+              -e TEST_BUCKET="kibwa-12" \
+              -e TEST_PREFIX="project/" \
+              
+              # 로그 디렉토리만 마운트 (S3를 사용하므로 데이터 디렉토리는 마운트하지 않음)
               -v /home/ec2-user/logs:/app/chatbot/logs \
-              --network=host \
+              
+              # 도커 이미지
               ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+            
+            echo "--- Container Status ---"
+            docker ps -a | grep chatbot_app
+            
+            echo "--- Cleaning up unused Docker images ---"
+            docker image prune -f
             
             echo "--- Cleaning up unused Docker images ---"
             docker system prune -f
