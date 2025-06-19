@@ -44,8 +44,22 @@
             color: #007bff;
             text-decoration: none;
         }
-        .register-link a:hover {
+        .register-link a:hover,
+        .test-link a:hover {
             text-decoration: underline;
+        }
+        
+        .action-links {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .test-link a {
+            color: #28a745;
+            text-decoration: none;
         }
         .btn-login {
             width: 100%;
@@ -80,8 +94,13 @@
                 <button type="submit" class="btn-login">로그인</button>
             </div>
         </form>
-        <div class="register-link">
-            계정이 없으신가요? <a href="/register">회원가입</a>
+        <div class="action-links">
+            <div class="register-link">
+                계정이 없으신가요? <a href="/register">회원가입</a>
+            </div>
+            <div class="test-link">
+                <a href="/test">테스트 하기</a>
+            </div>
         </div>
     </div>
 
