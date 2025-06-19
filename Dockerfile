@@ -20,20 +20,9 @@ RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 # 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
 COPY ./chatbot/ /app/chatbot/
 COPY ./config/ /app/config/
-COPY setup.py /app/
 
-# 환경 변수 설정 (필요한 경우 기본값 설정)
+# Python 경로 설정
 ENV PYTHONPATH="${PYTHONPATH}:/app"
-
-# KIBWA05 S3 버킷 설정
-ENV KIBWA05_ACCESS_KEY_ID=""
-ENV KIBWA05_SECRET_ACCESS_KEY=""
-ENV KIBWA05_DEFAULT_REGION="ap-northeast-2"
-
-# 기본 AWS S3 버킷 설정
-ENV AWS_ACCESS_KEY_ID=""
-ENV AWS_SECRET_ACCESS_KEY=""
-ENV AWS_DEFAULT_REGION="ap-northeast-2"
 
 # 8000 포트 노출
 EXPOSE 8000
