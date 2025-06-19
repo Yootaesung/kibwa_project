@@ -19,7 +19,7 @@ RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 
 # 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
 COPY ./chatbot/ /app/chatbot/
-COPY ./config/ /app/config/
+# config 디렉토리는 chatbot/ 하위에 있으므로 별도로 복사할 필요 없음
 
 # Python 경로 설정
 ENV PYTHONPATH="${PYTHONPATH}:/app"
