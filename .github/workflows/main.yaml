@@ -62,6 +62,9 @@ jobs:
               -e KIBWA05_BUCKET=kibwa-05 \
               -e KIBWA05_PREFIX=project/ \
               -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.KIBWA05_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.KIBWA05_SECRET_ACCESS_KEY }} \
+              -e AWS_DEFAULT_REGION=ap-northeast-3 \
               ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
             
             echo "--- Container Status ---"
