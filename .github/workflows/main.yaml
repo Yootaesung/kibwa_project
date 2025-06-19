@@ -40,8 +40,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # 캐시 제거
+          no-cache: true
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master

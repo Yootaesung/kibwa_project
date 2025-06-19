@@ -377,7 +377,7 @@
         }
 
         async function init() {
-            checkAuthentication();
+            await checkAuthentication();
             
             try {
                 // 감정 키워드 로드
@@ -407,10 +407,14 @@
                 const response = await fetch('/api/check-auth');
                 if (!response.ok) {
                     window.location.href = '/login';
+                    // 리다이렉트 후 함수 실행 중지
+                    throw new Error('Not authenticated');
                 }
             } catch (error) {
                 console.error('인증 체크 중 오류 발생:', error);
                 window.location.href = '/login';
+                // 리다이렉트 후 함수 실행 중지
+                throw error;
             }
         }
 

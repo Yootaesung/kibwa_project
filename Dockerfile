@@ -14,20 +14,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사 (먼저 requirements.txt만 복사하여 캐시 활용)
+# 필요한 디렉토리 생성
+RUN mkdir -p /app/chatbot/templates /app/chatbot/static
+
+# 1. 기본 파일들 복사
 COPY . .
 
-# 필요한 디렉토리 생성
-RUN mkdir -p /app/chat_logs \
-    /app/emotion_data \
-    /app/member_information \
-    /app/profanity_data \
-    /app/chatbot/static \
-    /app/chatbot/templates
+# 2. 템플릿과 정적 파일이 있는 경우에만 복사
+COPY ./chatbot/templates/ /app/chatbot/templates/
+COPY ./chatbot/static/ /app/chatbot/static/
 
-# 정적 파일 및 템플릿 복사
-COPY ./chatbot/static /app/chatbot/static/
-COPY ./chatbot/templates /app/chatbot/templates/
+# 디버깅을 위한 파일 목록 출력
+RUN echo "=== 파일 목록 확인 ===" && \
+    find /app -type f -name "*.html" && \
+    ls -la /app/chatbot/templates/ && \
+    echo "==================="
 
 # Python이 모듈을 찾을 수 있도록 경로 추가
 ENV PYTHONPATH="${PYTHONPATH}:/app"
