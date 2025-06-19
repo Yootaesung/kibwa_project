@@ -2,6 +2,12 @@ FROM python:3.9-slim
 
 WORKDIR /app/chatbot
 
+# 필요한 패키지 설치
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # 의존성 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -10,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY templates/ .
 COPY static/ .
+
+# 정적 파일 디렉토리 설정
+RUN mkdir -p static/css
 
 # 포트 노출
 EXPOSE 8000
