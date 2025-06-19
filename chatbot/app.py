@@ -410,21 +410,27 @@ async def test_page(request: Request):
 async def get_test_scenarios():
     """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
     try:
-        scenarios = s3_client.list_scenarios()
+        # 테스트 시나리오는 test 버킷에서 가져옵니다.
+        test_s3_client = S3Client(bucket_type='test')
+        scenarios = test_s3_client.list_scenarios()
         return {"scenarios": scenarios}
     except Exception as e:
-        print(f"Error listing scenarios: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error listing test scenarios: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"테스트 시나리오를 불러오는 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @app.get("/api/test/scenario/{scenario_key:path}")
 async def get_scenario(scenario_key: str):
-    """특정 시나리오의 상세 내용을 가져옵니다."""
+    """특정 테스트 시나리오를 가져옵니다."""
     try:
-        messages = s3_client.get_scenario(scenario_key)
-        print(f"Loaded scenario data: {messages}")  # 디버깅용 로그 추가
+        # 테스트 시나리오는 test 버킷에서 가져옵니다.
+        test_s3_client = S3Client(bucket_type='test')
+        messages = test_s3_client.get_scenario(scenario_key)
         
         if not messages:
-            raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없거나 유효하지 않은 형식입니다.")
+            raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다.")
         
         # 각 메시지의 필수 필드 확인 및 기본값 설정
         for msg in messages:
@@ -441,12 +447,15 @@ async def get_scenario(scenario_key: str):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting scenario {scenario_key}: {e}")
-        raise HTTPException(status_code=500, detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}")
+        logger.error(f"Error getting test scenario {scenario_key}: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @app.post("/api/test/save")
 async def save_test_result_endpoint(data: dict):
-    """테스트 결과를 저장합니다."""
+    """테스트 결과를 S3에 저장합니다."""
     try:
         scenario_key = data.get('scenario_key')
         messages = data.get('messages', [])
@@ -454,17 +463,48 @@ async def save_test_result_endpoint(data: dict):
         if not scenario_key:
             raise HTTPException(status_code=400, detail="시나리오 키가 필요합니다.")
         
-        # 테스트 결과 저장
-        filepath = save_test_result(scenario_key, messages)
+        # 테스트 결과 저장 (S3에 저장)
+        test_s3_client = S3Client(bucket_type='test')
         
-        return {"status": "success", "filepath": filepath}
+        # 테스트 결과 파일명 생성 (예: results/scenario_key/timestamp.json)
+        import time
+        from datetime import datetime
+        
+        timestamp = int(time.time())
+        date_str = datetime.utcnow().strftime("%Y%m%d")
+        result_key = f"test_results/{date_str}/{scenario_key}_{timestamp}.json"
+        
+        # 결과 데이터 구성
+        result_data = {
+            'scenario_key': scenario_key,
+            'timestamp': timestamp,
+            'created_at': datetime.utcnow().isoformat(),
+            'messages': messages
+        }
+        
+        # S3에 저장
+        test_s3_client.s3.put_object(
+            Bucket=test_s3_client.bucket_name,
+            Key=result_key,
+            Body=json.dumps(result_data, ensure_ascii=False, indent=2).encode('utf-8'),
+            ContentType='application/json'
+        )
+        
+        logger.info(f"Test result saved to S3: {result_key}")
+        return {"status": "success", "s3_key": result_key}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error saving test result: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error saving test result to S3: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"테스트 결과를 저장하는 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @app.post("/api/test/save_chat_logs")
 async def save_chat_logs(data: dict):
-    """테스트 채팅 로그를 저장합니다."""
+    """테스트 채팅 로그를 S3에 저장합니다."""
     try:
         scenario_key = data.get('scenario_key')
         messages = data.get('messages', [])
@@ -472,13 +512,13 @@ async def save_chat_logs(data: dict):
         if not scenario_key:
             raise HTTPException(status_code=400, detail="시나리오 키가 필요합니다.")
         
-        # 파일명 생성 (S3 파일명 + _chat_logs)
-        base_name = os.path.basename(scenario_key).replace('.json', '')
-        filename = f"{base_name}_chat_logs.json"
-        filepath = os.path.join(TEST_RESULTS_DIR, filename)
+        # S3 클라이언트 초기화 (테스트 버킷 사용)
+        test_s3_client = S3Client(bucket_type='test')
         
-        # 디렉토리 생성 (필요한 경우)
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # 파일명 생성 (S3 키)
+        base_name = os.path.basename(scenario_key).replace('.json', '')
+        date_str = datetime.utcnow().strftime("%Y%m%d")
+        log_key = f"chat_logs/{date_str}/{base_name}_chat_logs.json"
         
         # 한국 시간대 설정
         kst = timezone(timedelta(hours=9))
@@ -493,24 +533,42 @@ async def save_chat_logs(data: dict):
                     'emotion': msg.get('emotion', '중립')
                 })
         
-        # 기존 파일이 있으면 로드하고, 없으면 새로 생성
-        if os.path.exists(filepath):
-            with open(filepath, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
-        else:
-            existing_data = []
+        # 기존 데이터 로드 (있는 경우)
+        existing_data = []
+        try:
+            existing_obj = test_s3_client.s3.get_object(
+                Bucket=test_s3_client.bucket_name,
+                Key=log_key
+            )
+            existing_data = json.loads(existing_obj['Body'].read().decode('utf-8'))
+        except test_s3_client.s3.exceptions.NoSuchKey:
+            # 파일이 존재하지 않는 경우 빈 리스트 사용
+            pass
+        except Exception as e:
+            logger.warning(f"기존 채팅 로그를 로드하는 중 오류 발생: {e}")
         
         # 기존 데이터에 새로운 로그 추가
         existing_data.extend(chat_logs)
         
-        # 파일 저장
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+        # S3에 저장
+        test_s3_client.s3.put_object(
+            Bucket=test_s3_client.bucket_name,
+            Key=log_key,
+            Body=json.dumps(existing_data, ensure_ascii=False, indent=2).encode('utf-8'),
+            ContentType='application/json'
+        )
         
-        return {"status": "success", "filepath": filepath}
+        logger.info(f"Chat logs saved to S3: {log_key}")
+        return {"status": "success", "s3_key": log_key}
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error saving chat logs: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error saving chat logs to S3: {e}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"채팅 로그를 저장하는 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @app.get("/register")
 async def register(request: Request):
