@@ -68,6 +68,10 @@ jobs:
               -v /home/ubuntu/emotion_data:/app/emotion_data \
               -v /home/ubuntu/member_information:/app/member_information \
               -v /home/ubuntu/profanity_data:/app/profanity_data \
+              -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+              -e AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }} \
               --network=host \
               ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
             
