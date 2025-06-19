@@ -38,8 +38,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          # 로그인 확인을 위한 디버그 로그 추가
-          verbose: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
