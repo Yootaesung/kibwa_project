@@ -12,28 +12,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 환경 변수 선언 (런타임에 주입받을 변수들)
 ENV KIBWA05_DEFAULT_REGION="ap-northeast-3" \
-    AWS_DEFAULT_REGION="ap-southeast-2"
+    AWS_DEFAULT_REGION="ap-southeast-2" \
+    KIBWA05_ACCESS_KEY_ID="" \
+    KIBWA05_SECRET_ACCESS_KEY=""
+
+# S3 버킷 환경 변수
+ENV S3_BUCKET="kibwa-05" \
+    S3_PREFIX="project/"
 
 # 의존성 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 필요한 디렉토리 생성 및 권한 설정
-RUN mkdir -p /app/chatbot/templates /app/chatbot/static \
-    /app/chatbot/chat_logs \
-    /app/chatbot/test_chat_logs \
-    /app/chatbot/member_information \
-    /app/chatbot/emotion_data \
-    /app/chatbot/profanity_data \
-    /app/chatbot/logs
+# 필요한 디렉토리 생성 (S3를 사용하므로 로컬 디렉토리는 임시용으로만 사용)
+RUN mkdir -p /app/chatbot/temp /app/chatbot/logs
 
-# 디렉토리 권한 설정
-RUN chmod -R 777 /app/chatbot/chat_logs \
-    /app/chatbot/test_chat_logs \
-    /app/chatbot/member_information \
-    /app/chatbot/emotion_data \
-    /app/chatbot/profanity_data \
-    /app/chatbot/logs
+# 로그 디렉토리 권한 설정
+RUN chmod -R 777 /app/chatbot/logs
 
 # 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
 COPY ./chatbot/ /app/chatbot/

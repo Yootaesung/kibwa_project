@@ -13,9 +13,10 @@ from config.settings import settings
 from config.logger import logger
 
 class S3MemberManager:
-    def __init__(self):
-        self.bucket_name = 'kibwa-05'
-        self.prefix = 'project/member_information/'
+    def __init__(self, bucket_name: str = 'kibwa-05', prefix: str = 'project/'):
+        self.bucket_name = bucket_name
+        self.prefix = prefix
+        self.member_prefix = f"{prefix}member_information/"
         
         # 환경 변수 확인
         aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
@@ -36,7 +37,7 @@ class S3MemberManager:
 
     def _get_member_key(self, username: str) -> str:
         """회원 정보 파일의 S3 키를 반환합니다."""
-        return f"{self.prefix}{username}.json"
+        return f"{self.member_prefix}{username}.json"
 
     def _hash_password(self, password: str) -> str:
         """비밀번호를 해시화합니다."""
@@ -56,6 +57,7 @@ class S3MemberManager:
         except ClientError as e:
             if e.response['Error']['Code'] == '404':
                 return False
+            logger.error(f"S3 키 확인 중 오류: {e}")
             raise
 
     def _load_json_from_s3(self, key: str) -> Optional[dict]:
@@ -66,16 +68,21 @@ class S3MemberManager:
         except ClientError as e:
             if e.response['Error']['Code'] == 'NoSuchKey':
                 return None
+            logger.error(f"S3에서 JSON 로드 중 오류: {e}")
             raise
 
     def _save_json_to_s3(self, key: str, data: dict):
         """JSON 데이터를 S3에 저장합니다."""
-        self.s3.put_object(
-            Bucket=self.bucket_name,
-            Key=key,
-            Body=json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'),
-            ContentType='application/json'
-        )
+        try:
+            self.s3.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'),
+                ContentType='application/json'
+            )
+        except Exception as e:
+            logger.error(f"S3에 JSON 저장 중 오류: {e}")
+            raise
 
     def register(self, username: str, password: str) -> Tuple[bool, str]:
         """

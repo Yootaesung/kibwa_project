@@ -32,9 +32,9 @@ env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 load_dotenv(env_path)
 
 # 환경 변수 확인
-print("AWS_ACCESS_KEY_ID:", 'Set' if os.getenv('AWS_ACCESS_KEY_ID') else 'Not Set')
-print("AWS_SECRET_ACCESS_KEY:", 'Set' if os.getenv('AWS_SECRET_ACCESS_KEY') else 'Not Set')
-print("AWS_DEFAULT_REGION:", os.getenv('AWS_DEFAULT_REGION', 'Not Set'))
+print("KIBWA05_ACCESS_KEY_ID:", 'Set' if os.getenv('KIBWA05_ACCESS_KEY_ID') else 'Not Set')
+print("KIBWA05_SECRET_ACCESS_KEY:", 'Set' if os.getenv('KIBWA05_SECRET_ACCESS_KEY') else 'Not Set')
+print("KIBWA05_DEFAULT_REGION:", os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3'))
 
 # 기본 설정
 BASE_DIR = Path(__file__).parent
@@ -73,12 +73,49 @@ app.add_middleware(
 # 정적 파일 설정
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# 감정 데이터 디렉토리 설정
-EMOTION_DATA_DIR = os.path.join(BASE_DIR, 'emotion_data')
-os.makedirs(EMOTION_DATA_DIR, exist_ok=True)
+# S3 버킷 설정
+S3_BUCKET = 'kibwa-05'
+S3_PREFIX = 'project/'
 
-# 감정 데이터 정적 파일 마운트
-app.mount("/emotion_data", StaticFiles(directory=EMOTION_DATA_DIR), name="emotion_data")
+# S3 클라이언트 초기화
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=os.getenv('KIBWA05_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('KIBWA05_SECRET_ACCESS_KEY'),
+    region_name=os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
+)
+
+def ensure_s3_paths():
+    """필요한 S3 경로가 존재하는지 확인하고 없으면 생성"""
+    required_paths = [
+        'chat_logs/',
+        'test_chat_logs/',
+        'member_information/',
+        'emotion_data/',
+        'profanity_data/'
+    ]
+    
+    try:
+        # 버킷의 루트에 접근 가능한지 확인
+        s3_client.head_bucket(Bucket=S3_BUCKET)
+        
+        # 필요한 경로들이 있는지 확인하고 없으면 생성
+        for path in required_paths:
+            try:
+                s3_client.head_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+            except s3_client.exceptions.NoSuchKey:
+                # 경로가 없으면 빈 디렉토리 생성
+                s3_client.put_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+    except Exception as e:
+        logger.error(f"S3 버킷 접근 오류: {e}")
+        raise
+
+# S3 경로 확인
+ensure_s3_paths()
+
+# 로컬 디렉토리 생성 (임시 파일 처리용)
+LOCAL_TEMP_DIR = os.path.join(BASE_DIR, 'temp')
+os.makedirs(LOCAL_TEMP_DIR, exist_ok=True)
 
 # 템플릿 설정
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -92,43 +129,45 @@ from chatbot.member import MemberManager as S3MemberManager
 member_manager = S3MemberManager()
 
 def get_user_chat_log_path(username: str):
-    chat_log_dir = os.path.join(BASE_DIR, 'chat_logs')
-    os.makedirs(chat_log_dir, exist_ok=True)
-    return os.path.join(chat_log_dir, f"{username}_chat_log.json")
+    """사용자 채팅 로그의 S3 경로 반환"""
+    return f"{S3_PREFIX}chat_logs/{username}_chat_log.json"
 
 def load_chat_history(username: str) -> List[Dict[str, Any]]:
-    log_file = get_user_chat_log_path(username)
-    if os.path.exists(log_file):
-        try:
-            with open(log_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON in chat log: {log_file}")
-            return []
-    return []
+    """S3에서 채팅 기록 로드"""
+    log_key = get_user_chat_log_path(username)
+    try:
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=log_key)
+        return json.loads(response['Body'].read().decode('utf-8'))
+    except s3_client.exceptions.NoSuchKey:
+        return []
+    except Exception as e:
+        logger.error(f"채팅 기록 로드 중 오류: {e}")
+        return []
 
 def save_chat_message(username: str, role: str, content: str):
+    """채팅 메시지를 S3에 저장"""
+    log_key = get_user_chat_log_path(username)
+    chat_history = load_chat_history(username)
+    
+    # 새 메시지 추가
+    new_message = {
+        "role": role,
+        "content": content,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    chat_history.append(new_message)
+    
+    # S3에 저장
     try:
-        chat_log_path = get_user_chat_log_path(username)
-        chat_history = []
-        if os.path.exists(chat_log_path):
-            try:
-                with open(chat_log_path, 'r', encoding='utf-8') as f:
-                    chat_history = json.load(f)
-            except json.JSONDecodeError:
-                chat_history = []
-        chat_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now().isoformat()
-        })
-        temp_path = f"{chat_log_path}.tmp"
-        with open(temp_path, 'w', encoding='utf-8') as f:
-            json.dump(chat_history, f, ensure_ascii=False, indent=2)
-        os.replace(temp_path, chat_log_path)
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=log_key,
+            Body=json.dumps(chat_history, ensure_ascii=False, indent=2).encode('utf-8'),
+            ContentType='application/json'
+        )
     except Exception as e:
-        logger.error(f"채팅 메시지 저장 중 오류 발생: {str(e)}")
-        raise
+        logger.error(f"채팅 기록 저장 중 오류: {e}")
+        raise HTTPException(status_code=500, detail="채팅 기록 저장에 실패했습니다.")
 
 def get_chat_context(username: str) -> List[Dict[str, str]]:
     return load_chat_history(username)
