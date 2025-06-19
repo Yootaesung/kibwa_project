@@ -84,62 +84,12 @@ app.mount("/emotion_data", StaticFiles(directory=EMOTION_DATA_DIR), name="emotio
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # ---------------------------
-# 3. 멤버/채팅 관리 클래스
+# 3. S3 멤버 관리 클래스
 # ---------------------------
-class MemberManager:
-    def __init__(self):
-        self.member_dir = os.path.join(BASE_DIR, 'member_information')
-        os.makedirs(self.member_dir, exist_ok=True)
+from chatbot.member import MemberManager as S3MemberManager
 
-    def _get_member_file(self, username):
-        return os.path.join(self.member_dir, f'{username}.json')
-
-    def _hash_password(self, password):
-        return hashlib.sha256(password.encode()).hexdigest()
-
-    def register(self, username, password):
-        member_file = self._get_member_file(username)
-        if os.path.exists(member_file):
-            return False, "이미 존재하는 사용자입니다."
-        hashed_password = self._hash_password(password)
-        user_data = {
-            'username': username,
-            'password': hashed_password,
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
-        }
-        try:
-            with open(member_file, 'w', encoding='utf-8') as f:
-                json.dump(user_data, f, ensure_ascii=False, indent=2)
-            return True, "회원가입이 완료되었습니다."
-        except Exception as e:
-            return False, f"회원가입 중 오류가 발생했습니다: {str(e)}"
-
-    def login(self, username, password):
-        member_file = self._get_member_file(username)
-        if not os.path.exists(member_file):
-            return False, "사용자를 찾을 수 없습니다."
-        try:
-            with open(member_file, 'r', encoding='utf-8') as f:
-                user_data = json.load(f)
-            if user_data['password'] == self._hash_password(password):
-                return True, user_data
-            else:
-                return False, "비밀번호가 일치하지 않습니다."
-        except Exception as e:
-            return False, f"로그인 중 오류가 발생했습니다: {str(e)}"
-
-    def get_user(self, user_id):
-        member_file = self._get_member_file(user_id)
-        if not os.path.exists(member_file):
-            return None
-        try:
-            with open(member_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return None
-
-member_manager = MemberManager()
+# S3MemberManager 인스턴스 생성
+member_manager = S3MemberManager()
 
 def get_user_chat_log_path(username: str):
     chat_log_dir = os.path.join(BASE_DIR, 'chat_logs')

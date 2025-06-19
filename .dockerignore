@@ -48,6 +48,10 @@ test_chat_logs/
 
 # Node.js (필요 없는 경우)
 node_modules/
+
+# JSON files (S3에서만 관리)
+*.json
+!package*.json  # package.json은 제외
 package*.json
 
 # macOS

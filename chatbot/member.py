@@ -1,9 +1,13 @@
 import json
 import hashlib
 import os
+import secrets
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+import boto3
+from botocore.exceptions import ClientError
 
 from config.settings import settings
 from config.logger import logger
@@ -12,11 +16,22 @@ class S3MemberManager:
     def __init__(self):
         self.bucket_name = 'kibwa-05'
         self.prefix = 'project/member_information/'
+        
+        # 환경 변수 확인
+        aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
+        aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
+        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
+        
+        if not all([aws_access_key_id, aws_secret_access_key]):
+            raise ValueError("S3 자격 증명 정보가 설정되지 않았습니다. KIBWA05_ACCESS_KEY_ID와 KIBWA05_SECRET_ACCESS_KEY를 확인하세요.")
+            
+        logger.info(f"Initializing S3MemberManager with bucket: {self.bucket_name}, region: {region_name}")
+        
         self.s3 = boto3.client(
             's3',
-            aws_access_key_id=os.getenv('KIBWA05_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('KIBWA05_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region_name
         )
 
     def _get_member_key(self, username: str) -> str:
