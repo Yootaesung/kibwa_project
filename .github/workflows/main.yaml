@@ -8,9 +8,11 @@ env:
   DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
   APP_DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/chatbot_app
-  EC2_HOST: ${{ secrets.EC2_HOST }}
-  EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-  EC2_KEY: ${{ secrets.EC2_KEY }}
+
+  AWS_REGION: ap-southeast-2
+  EC2_HOST: ${{ secrets.HOST }}
+  EC2_USERNAME: ${{ secrets.USERNAME }}
+  EC2_KEY: ${{ secrets.KEY }}
 
 jobs:
   build-and-deploy:
@@ -39,7 +41,7 @@ jobs:
           host: ${{ env.EC2_HOST }}
           username: ${{ env.EC2_USERNAME }}
           key: ${{ env.EC2_KEY }}
-          port: 22 
+          port: ${{ secrets.PORT }}
           script: |
             echo "--- Pulling Latest App Image ---"
             docker pull ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
