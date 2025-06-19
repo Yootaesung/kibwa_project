@@ -6,10 +6,7 @@ WORKDIR /app/chatbot
 COPY chatbot/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 애플리케이션 코드 복사
-COPY chatbot/ .
-
-# 필요한 파일만 복사
+# 필요한 파일들만 복사
 COPY chatbot/app.py .
 COPY chatbot/config/ .
 COPY chatbot/templates/ .
