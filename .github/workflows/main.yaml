@@ -10,10 +10,19 @@ env:
   DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
   # Docker Hub 사용자명을 포함한 전체 이미지 경로 지정
   APP_DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/chatbot_app
-  AWS_REGION: ap-southeast-2
+  AWS_REGION: ap-northeast-2
   EC2_HOST: ${{ secrets.HOST }}
   EC2_USERNAME: ${{ secrets.USERNAME }}
   EC2_KEY: ${{ secrets.KEY }}
+  # KIBWA05 S3 버킷 접근을 위한 환경 변수
+  KIBWA05_ACCESS_KEY_ID: ${{ secrets.KIBWA05_ACCESS_KEY_ID }}
+  KIBWA05_SECRET_ACCESS_KEY: ${{ secrets.KIBWA05_SECRET_ACCESS_KEY }}
+  KIBWA05_DEFAULT_REGION: ap-northeast-2
+  
+  # 기본 AWS S3 버킷 접근을 위한 환경 변수
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: ap-northeast-2
 
 jobs:
   build-and-deploy:
@@ -42,6 +51,14 @@ jobs:
           tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
           # 캐시 제거
           no-cache: true
+          # 빌드 인자로 환경 변수 전달
+          build-args: |
+            KIBWA05_ACCESS_KEY_ID=${{ env.KIBWA05_ACCESS_KEY_ID }}
+            KIBWA05_SECRET_ACCESS_KEY=${{ env.KIBWA05_SECRET_ACCESS_KEY }}
+            KIBWA05_DEFAULT_REGION=${{ env.KIBWA05_DEFAULT_REGION }}
+            AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+            AWS_DEFAULT_REGION=${{ env.AWS_DEFAULT_REGION }}
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -58,25 +75,18 @@ jobs:
             docker stop chatbot_app || true
             docker rm chatbot_app || true
             
-            echo "--- Creating Required Directories ---"
-            mkdir -p /home/ubuntu/chat_logs
-            mkdir -p /home/ubuntu/emotion_data
-            mkdir -p /home/ubuntu/member_information
-            mkdir -p /home/ubuntu/profanity_data
-            
             echo "--- Running New App Container ---"
             docker run -d \
               --restart always \
               --name chatbot_app \
               -p 8000:8000 \
-              -v /home/ubuntu/chat_logs:/app/chat_logs \
-              -v /home/ubuntu/emotion_data:/app/emotion_data \
-              -v /home/ubuntu/member_information:/app/member_information \
-              -v /home/ubuntu/profanity_data:/app/profanity_data \
               -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+              -e KIBWA05_ACCESS_KEY_ID=${{ secrets.KIBWA05_ACCESS_KEY_ID }} \
+              -e KIBWA05_SECRET_ACCESS_KEY=${{ secrets.KIBWA05_SECRET_ACCESS_KEY }} \
+              -e KIBWA05_DEFAULT_REGION=ap-northeast-2 \
               -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
               -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-              -e AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }} \
+              -e AWS_DEFAULT_REGION=ap-northeast-2 \
               --network=host \
               ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
             

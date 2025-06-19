@@ -14,24 +14,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 필요한 디렉토리 생성
+# 필요한 디렉토리 생성 (정적 파일과 템플릿은 여전히 필요할 수 있으므로 유지)
 RUN mkdir -p /app/chatbot/templates /app/chatbot/static
 
-# 1. 기본 파일들 복사
-COPY . .
+# 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
+COPY ./chatbot/ /app/chatbot/
+COPY ./config/ /app/config/
+COPY setup.py /app/
+COPY run.py /app/
 
-# 2. 템플릿과 정적 파일이 있는 경우에만 복사
-COPY ./chatbot/templates/ /app/chatbot/templates/
-COPY ./chatbot/static/ /app/chatbot/static/
-
-# 디버깅을 위한 파일 목록 출력
-RUN echo "=== 파일 목록 확인 ===" && \
-    find /app -type f -name "*.html" && \
-    ls -la /app/chatbot/templates/ && \
-    echo "==================="
-
-# Python이 모듈을 찾을 수 있도록 경로 추가
+# 환경 변수 설정 (필요한 경우 기본값 설정)
 ENV PYTHONPATH="${PYTHONPATH}:/app"
+
+# KIBWA05 S3 버킷 설정
+ENV KIBWA05_ACCESS_KEY_ID=""
+ENV KIBWA05_SECRET_ACCESS_KEY=""
+ENV KIBWA05_DEFAULT_REGION="ap-northeast-2"
+
+# 기본 AWS S3 버킷 설정
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_DEFAULT_REGION="ap-northeast-2"
 
 # 8000 포트 노출
 EXPOSE 8000
