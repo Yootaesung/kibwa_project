@@ -17,9 +17,6 @@ COPY app.py .
 COPY templates/ .
 COPY static/ .
 
-# 정적 파일 디렉토리 설정
-RUN mkdir -p static/css
-
 # 포트 노출
 EXPOSE 8000
 
