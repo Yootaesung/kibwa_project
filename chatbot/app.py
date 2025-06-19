@@ -210,6 +210,10 @@ class S3Client:
         Args:
             bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
         """
+        # 환경 변수 로깅 추가
+        logger.info(f"Initializing S3 client with bucket_type: {bucket_type}")
+        logger.info(f"All environment variables: {dict(os.environ)}")
+        
         if bucket_type == 'chatbot':
             # 챗봇 데이터용 S3 버킷 (kibwa-05)
             aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
@@ -218,6 +222,8 @@ class S3Client:
             self.bucket_name = 'kibwa-05'
             self.prefix = 'project/'
             logger.info(f"Using KIBWA05 credentials for bucket {self.bucket_name}")
+            logger.info(f"KIBWA05_ACCESS_KEY_ID: {'*' * 8 + aws_access_key_id[-4:] if aws_access_key_id else 'Not set'}")
+            logger.info(f"KIBWA05_DEFAULT_REGION: {region_name}")
         else:
             # 테스트 시나리오용 S3 버킷 (kibwa-12)
             aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
@@ -226,6 +232,8 @@ class S3Client:
             self.bucket_name = 'kibwa-12'
             self.prefix = 'project/'
             logger.info(f"Using AWS credentials for test bucket {self.bucket_name}")
+            logger.info(f"AWS_ACCESS_KEY_ID: {'*' * 8 + aws_access_key_id[-4:] if aws_access_key_id else 'Not set'}")
+            logger.info(f"AWS_DEFAULT_REGION: {region_name}")
             
         # 자격 증명 확인
         if not all([aws_access_key_id, aws_secret_access_key]):
@@ -233,17 +241,29 @@ class S3Client:
             error_msg += f"Access Key: {'Set' if aws_access_key_id else 'Missing'}, "
             error_msg += f"Secret Key: {'Set' if aws_secret_access_key else 'Missing'}"
             logger.error(error_msg)
+            
+            # 환경 변수 디버깅을 위한 추가 로그
+            env_vars = dict(os.environ)
+            logger.error(f"Available environment variables: {list(env_vars.keys())}")
+            
             raise ValueError(error_msg)
         
-        print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
+        logger.info(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
         
-        # S3 클라이언트 초기화
-        self.s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name
-        )
+        try:
+            # S3 클라이언트 초기화
+            self.s3 = boto3.client(
+                's3',
+                aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                region_name=region_name
+            )
+            # 연결 테스트
+            self.s3.list_buckets()
+            logger.info("Successfully connected to AWS S3")
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 client: {str(e)}")
+            raise
     
     def list_scenarios(self):
         response = self.s3.list_objects_v2(
