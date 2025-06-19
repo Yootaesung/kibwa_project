@@ -20,7 +20,7 @@ class S3MemberManager:
         # 환경 변수 확인
         aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
         aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
-        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
+        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
         
         if not all([aws_access_key_id, aws_secret_access_key]):
             raise ValueError("S3 자격 증명 정보가 설정되지 않았습니다. KIBWA05_ACCESS_KEY_ID와 KIBWA05_SECRET_ACCESS_KEY를 확인하세요.")

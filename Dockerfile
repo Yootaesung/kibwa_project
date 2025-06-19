@@ -10,12 +10,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# 환경 변수 선언 (런타임에 주입받을 변수들)
+ENV KIBWA05_DEFAULT_REGION="ap-northeast-3" \
+    AWS_DEFAULT_REGION="ap-southeast-2"
+
 # 의존성 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 필요한 디렉토리 생성 (정적 파일과 템플릿은 여전히 필요할 수 있으므로 유지)
-RUN mkdir -p /app/chatbot/templates /app/chatbot/static
+# 필요한 디렉토리 생성 및 권한 설정
+RUN mkdir -p /app/chatbot/templates /app/chatbot/static \
+    /app/chatbot/chat_logs \
+    /app/chatbot/test_chat_logs \
+    /app/chatbot/member_information \
+    /app/chatbot/emotion_data \
+    /app/chatbot/profanity_data \
+    /app/chatbot/logs
+
+# 디렉토리 권한 설정
+RUN chmod -R 777 /app/chatbot/chat_logs \
+    /app/chatbot/test_chat_logs \
+    /app/chatbot/member_information \
+    /app/chatbot/emotion_data \
+    /app/chatbot/profanity_data \
+    /app/chatbot/logs
 
 # 필요한 파일들만 복사 (불필요한 데이터 디렉토리는 제외)
 COPY ./chatbot/ /app/chatbot/
