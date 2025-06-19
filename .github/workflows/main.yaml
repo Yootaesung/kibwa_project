@@ -33,6 +33,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ env.APP_DOCKER_IMAGE_NAME }}:latest
+          build-args: |
+            --build-arg PYTHONPATH=/app
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
