@@ -217,6 +217,7 @@ class S3Client:
             region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-2')
             self.bucket_name = 'kibwa-05'
             self.prefix = 'project/'
+            logger.info(f"Using KIBWA05 credentials for bucket {self.bucket_name}")
         else:
             # 테스트 시나리오용 S3 버킷 (kibwa-12)
             aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
@@ -224,6 +225,15 @@ class S3Client:
             region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
             self.bucket_name = 'kibwa-12'
             self.prefix = 'project/'
+            logger.info(f"Using AWS credentials for test bucket {self.bucket_name}")
+            
+        # 자격 증명 확인
+        if not all([aws_access_key_id, aws_secret_access_key]):
+            error_msg = f"Missing AWS credentials for {bucket_type} bucket. "
+            error_msg += f"Access Key: {'Set' if aws_access_key_id else 'Missing'}, "
+            error_msg += f"Secret Key: {'Set' if aws_secret_access_key else 'Missing'}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
         
         print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
         
