@@ -2,31 +2,25 @@ import os
 import json
 import hashlib
 import logging
+import uuid
 from pathlib import Path
-import botocore
-from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import boto3
-from fastapi import FastAPI, Request, Response, HTTPException, Form, status, Response, Depends
+import botocore
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, Response, HTTPException, Form, status, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
-from typing import Optional
-import uuid
-import os
-from pathlib import Path
 
 # ---------------------------
 # 1. 환경설정 및 유틸리티
 # ---------------------------
-from dotenv import load_dotenv
-import os
-from pathlib import Path
 
 # 환경 변수 로드 (절대 경로로 지정)
 env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
@@ -40,7 +34,6 @@ print("KIBWA05_DEFAULT_REGION:", os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northea
 # 기본 설정
 BASE_DIR = Path(__file__).parent
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # 로그 디렉토리 생성
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
@@ -204,8 +197,7 @@ def save_chat_message(username: str, role: str, content: str):
         logger.error(f"Error saving chat message: {e}")
         return False
 
-def get_chat_context(username: str) -> List[Dict[str, str]]:
-    return load_chat_history(username)
+# get_chat_context function has been removed as it was redundant with load_chat_history
 
 # ---------------------------
 # 4. 챗봇 클래스
@@ -308,6 +300,46 @@ async def chat_page(request: Request):
     if not request.cookies.get("user_id"):
         return RedirectResponse(url="/login")
     return templates.TemplateResponse("index.html", {"request": request})
+
+# 프론트엔드와의 호환성을 위해 /chat/ 엔드포인트도 추가
+@app.post("/chat/")
+@app.post("/chat")
+@app.post("/api/chat")
+async def handle_chat_message(chat_request: ChatRequest, request: Request):
+    """채팅 메시지를 처리합니다."""
+    # 로그인 확인
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    
+    # 사용자 정보 가져오기
+    user = member_manager.get_user(user_id)
+    if not user:
+        response = JSONResponse(
+            content={"error": "사용자 정보를 찾을 수 없습니다."},
+            status_code=404
+        )
+        response.delete_cookie(key="user_id")
+        return response
+    
+    # 채팅 처리 로직 (기존 chat 함수와 동일)
+    return await chat(chat_request, request)
+
+@app.get("/test")
+async def test_page(request: Request):
+    """테스트 페이지를 반환합니다."""
+    # 로그인되지 않은 사용자는 로그인 페이지로 리다이렉트
+    if not request.cookies.get("user_id"):
+        return RedirectResponse(url="/login")
+    return templates.TemplateResponse("test.html", {"request": request})
+
+@app.get("/register")
+async def register_page(request: Request):
+    """회원가입 페이지를 반환합니다."""
+    # 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
+    if request.cookies.get("user_id"):
+        return RedirectResponse(url="/chat")
+    return templates.TemplateResponse("register.html", {"request": request})
 
 # ---------------------------
 # 5. 모델
