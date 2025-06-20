@@ -95,6 +95,9 @@ async def verify_auth(request: Request, call_next):
 # 정적 파일 설정
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# 감정 키워드 파일 추가
+app.mount("/emotion_data", StaticFiles(directory="emotion_data"), name="emotion_data")
+
 # S3 버킷 설정
 S3_BUCKET = 'kibwa-05'
 S3_PREFIX = 'project/'
@@ -303,43 +306,30 @@ class S3Client:
         )
         
         scenarios = []
-        for obj in response.get('Contents', []):
-            key = obj['Key']
-            if key.endswith('.json') and key != self.prefix:
-                # 파일명에서 메타데이터 추출 (예: project/10대_남성_학생_1.json)
-                filename = key.replace(self.prefix, '').replace('.json', '')
-                parts = filename.split('_')
-                
-                if len(parts) >= 3:
-                    age_group = parts[0]
-                    gender = parts[1]
-                    role = '_'.join(parts[2:])  # 역할에 밑줄이 포함될 수 있음
-                    
-                    scenarios.append({
-                        'key': key,
-                        'filename': filename,
-                        'age_group': age_group,
-                        'gender': gender,
-                        'role': role
-                    })
-        
-        return scenarios
-    
-    def get_scenario(self, key: str):
         try:
-            response = self.s3.get_object(
+            self.s3.upload_file(file_path, self.bucket_name, key)
+            logger.info(f"파일 업로드 성공: {key}")
+            return True
+        except Exception as e:
+            logger.error(f"파일 업로드 실패: {e}")
+            return False
+
+    def download_file(self, key: str, file_path: str):
+        try:
+            self.s3.download_file(self.bucket_name, key, file_path)
+            logger.info(f"파일 다운로드 성공: {key}")
+            return True
+        except Exception as e:
+            logger.error(f"파일 다운로드 실패: {e}")
+            return False
+
+    def list_files(self, prefix: str = ''):
+        try:
+            response = self.s3.list_objects_v2(
                 Bucket=self.bucket_name,
-                Key=key
+                Prefix=prefix
             )
-            content = response['Body'].read().decode('utf-8')
-            data = json.loads(content)
-            
-            # 다양한 JSON 형식 처리
-            if isinstance(data, dict):
-                # {감정: [...]} 형식인 경우
-                if any(emotion in data for emotion in ['분노', '기쁨', '슬픔', '두려움', '놀람']):
-                    messages = []
-                    for emotion_list in data.values():
+            return [content['Key'] for content in response.get('Contents', [])]
                         if isinstance(emotion_list, list):
                             for item in emotion_list:
                                 if isinstance(item, dict) and all(field in item for field in 
