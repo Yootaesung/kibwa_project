@@ -34,6 +34,7 @@ print("KIBWA05_DEFAULT_REGION:", os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northea
 # 기본 설정
 BASE_DIR = Path(__file__).parent
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 # 로그 디렉토리 생성
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
