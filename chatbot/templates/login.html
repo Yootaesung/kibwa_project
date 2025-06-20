@@ -132,6 +132,12 @@
                     credentials: 'include'
                 });
                 
+                // 서버가 리다이렉트를 보내는 경우
+                if (response.redirected) {
+                    window.location.href = response.url;
+                    return;
+                }
+                
                 const data = await response.json();
                 
                 if (response.ok) {
