@@ -666,21 +666,17 @@
                     const response = await fetch('/api/test/scenarios');
                     const data = await response.json();
                     
-                    if (!response.ok) {
-                        throw new Error(data.detail || '시나리오를 불러오는 데 실패했습니다.');
-                    }
+                    const scenarioList = document.getElementById('scenario-list');
+                    scenarioList.innerHTML = '';
                     
-                    // 기존 옵션 제거 (로딩 중 메시지 제외)
-                    while (scenarioSelect.options.length > 1) {
-                        scenarioSelect.remove(1);
-                    }
-                    
-                    // 시나리오 옵션 추가
                     data.scenarios.forEach(scenario => {
-                        const option = document.createElement('option');
-                        option.value = scenario.key;
-                        option.textContent = `${scenario.age_group} / ${scenario.gender} / ${scenario.role}`;
-                        scenarioSelect.appendChild(option);
+                        const li = document.createElement('li');
+                        li.className = 'scenario-item';
+                        li.innerHTML = `
+                            <div class="scenario-name">${scenario.name}</div>
+                            <button onclick="selectScenario('${scenario.key}')" class="select-btn">선택</button>
+                        `;
+                        scenarioList.appendChild(li);
                     });
                     
                     // 시나리오 선택 이벤트 리스너

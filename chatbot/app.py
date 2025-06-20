@@ -22,14 +22,13 @@ from openai import OpenAI
 # 1. 환경설정 및 유틸리티
 # ---------------------------
 
-# 환경 변수 로드 (절대 경로로 지정)
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
-load_dotenv(env_path)
-
-# 환경 변수 확인
+# GitHub Actions 환경 변수 확인
 print("KIBWA05_ACCESS_KEY_ID:", 'Set' if os.getenv('KIBWA05_ACCESS_KEY_ID') else 'Not Set')
 print("KIBWA05_SECRET_ACCESS_KEY:", 'Set' if os.getenv('KIBWA05_SECRET_ACCESS_KEY') else 'Not Set')
 print("KIBWA05_DEFAULT_REGION:", os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3'))
+print("AWS_ACCESS_KEY_ID:", 'Set' if os.getenv('AWS_ACCESS_KEY_ID') else 'Not Set')
+print("AWS_SECRET_ACCESS_KEY:", 'Set' if os.getenv('AWS_SECRET_ACCESS_KEY') else 'Not Set')
+print("AWS_DEFAULT_REGION:", os.getenv('AWS_DEFAULT_REGION'))
 
 # 기본 설정
 BASE_DIR = Path(__file__).parent
@@ -94,11 +93,21 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/emotion_data", StaticFiles(directory="emotion_data"), name="emotion_data")
 
 # S3 버킷 설정
-S3_BUCKET = 'kibwa-05'
-S3_PREFIX = 'project/'
+TEST_BUCKET = 'kibwa-12'
+TEST_PREFIX = 'project/'
+CHATBOT_BUCKET = 'kibwa-05'
+CHATBOT_PREFIX = 'project/'
 
-# S3 클라이언트 초기화
-s3_client = boto3.client(
+# S3 클라이언트 초기화 (테스트 버킷용)
+test_s3_client = boto3.client(
+    's3',
+    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    region_name=os.getenv('AWS_DEFAULT_REGION')
+)
+
+# S3 클라이언트 초기화 (챗봇 버킷용)
+chatbot_s3_client = boto3.client(
     's3',
     aws_access_key_id=os.getenv('KIBWA05_ACCESS_KEY_ID'),
     aws_secret_access_key=os.getenv('KIBWA05_SECRET_ACCESS_KEY'),
@@ -117,16 +126,16 @@ def ensure_s3_paths():
     
     try:
         # 버킷의 루트에 접근 가능한지 확인
-        s3_client.head_bucket(Bucket=S3_BUCKET)
+        chatbot_s3_client.head_bucket(Bucket=CHATBOT_BUCKET)
         
         # 필요한 경로들이 있는지 확인하고 없으면 생성
         for path in required_paths:
             try:
-                s3_client.head_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+                chatbot_s3_client.head_object(Bucket=CHATBOT_BUCKET, Key=f"{CHATBOT_PREFIX}{path}")
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == '404':
                     # 경로가 없으면 빈 디렉토리 생성
-                    s3_client.put_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+                    chatbot_s3_client.put_object(Bucket=CHATBOT_BUCKET, Key=f"{CHATBOT_PREFIX}{path}")
                 else:
                     logger.error(f"S3 객체 접근 오류: {e}")
                     raise
@@ -160,7 +169,7 @@ def load_chat_history(username: str) -> List[Dict[str, Any]]:
     """S3에서 채팅 기록 로드"""
     log_key = get_user_chat_log_path(username)
     try:
-        response = s3_client.get_object(Bucket=S3_BUCKET, Key=log_key)
+        response = chatbot_s3_client.get_object(Bucket=CHATBOT_BUCKET, Key=log_key)
         return json.loads(response['Body'].read().decode('utf-8'))
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == '404':
@@ -187,10 +196,11 @@ def save_chat_message(username: str, role: str, content: str):
     
     # S3에 저장
     try:
-        s3_client.put_object(
-            key=log_key,
-            body=json.dumps(chat_history, ensure_ascii=False, indent=2).encode('utf-8'),
-            content_type='application/json'
+        chatbot_s3_client.put_object(
+            Bucket=CHATBOT_BUCKET,
+            Key=log_key,
+            Body=json.dumps(chat_history, ensure_ascii=False, indent=2).encode('utf-8'),
+            ContentType='application/json'
         )
         logger.info(f"Chat message saved successfully: {log_key}")
         return True
@@ -235,7 +245,11 @@ class SimpleChatbot:
         try:
             # S3에서 감정 키워드 파일 다운로드
             emotion_file_path = os.path.join(BASE_DIR, 'emotion_data', 'emotion_keywords.json')
-            s3_client.download_file('emotion_data/emotion_keywords.json', emotion_file_path)
+            chatbot_s3_client.download_file(
+                Bucket=CHATBOT_BUCKET,
+                Key=f"{CHATBOT_PREFIX}emotion_data/emotion_keywords.json",
+                Filename=emotion_file_path
+            )
             
             # 파일 읽기
             with open(emotion_file_path, 'r', encoding='utf-8') as f:
@@ -313,8 +327,6 @@ async def chat_page(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 # 프론트엔드와의 호환성을 위해 /chat/ 엔드포인트도 추가
-@app.post("/chat/")
-@app.post("/chat")
 @app.post("/api/chat")
 async def handle_chat_message(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
@@ -334,19 +346,7 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
             response.delete_cookie(key="user_id")
             return response
         
-        # 테스트 모드인 경우 감정별 응답 반환
-        if chat_request.is_test:
-            import random
-            emotion_responses = {
-                "기쁨": ["기쁜 일이시군요! 기분이 좋아 보이네요 😊"],
-                "분노": ["화가 나시는군요. 마음을 진정시켜 보세요."],
-                "슬픔": ["슬프시군요. 기분 전환하실 수 있으면 좋겠어요."],
-                "불안": ["걱정되시는군요. 안정을 찾을 수 있길 바랍니다."],
-                "중립": ["이해했어요. 더 자세히 말씀해 주실 수 있나요?"],
-                "놀람": ["놀라우셨겠어요! 어떤 일이 있었는지 더 들려주실 수 있나요? 😲"]
-            }
-            response = random.choice(emotion_responses.get(chat_request.emotion, ["이해했어요."]))
-            return {"response": response, "emotion": chat_request.emotion}
+
         
         # 실제 채팅 처리 로직
         response = await chatbot.generate_response(
@@ -386,19 +386,37 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 # ---------------------------
-# 5. 모델
+# 4. S3 클라이언트 초기화
 # ---------------------------
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class RegisterRequest(BaseModel):
-    username: str
-    password: str
-
-class EndChatRequest(BaseModel):
-    messages: List[Dict[str, str]]
+# S3 클라이언트 초기화 함수
+def init_s3_client(bucket_type='chatbot'):
+    """
+    S3 클라이언트를 초기화합니다.
+    
+    Args:
+        bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
+    
+    Returns:
+        boto3.client: 초기화된 S3 클라이언트
+    """
+    if bucket_type == 'test':
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
+    else:
+        aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
+        aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
+        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-southeast-2')
+    
+    logger.info(f"Initializing S3 client for bucket type: {bucket_type}")
+    
+    return boto3.client(
+        's3',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        region_name=region_name
+    )
 
 # ---------------------------
 # 5.1 S3 클라이언트 설정
@@ -411,21 +429,16 @@ class S3Client:
         Args:
             bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
         """
-        if bucket_type == 'chatbot':
-            # 챗봇 데이터용 S3 버킷 (kibwa-05)
-            self.bucket_name = os.getenv('KIBWA05_BUCKET', 'kibwa-05')
-            self.prefix = os.getenv('KIBWA05_PREFIX', 'project/')
-            aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
-            aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
-            region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
+        if bucket_type == 'test':
+            self.bucket_name = TEST_BUCKET
+            self.prefix = TEST_PREFIX
         else:
-            # 테스트 시나리오용 S3 버킷 (kibwa-12)
-            self.bucket_name = os.getenv('TEST_BUCKET', 'kibwa-12')
-            self.prefix = os.getenv('TEST_PREFIX', 'project/')
-            aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-            aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-            region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
-        
+            self.bucket_name = CHATBOT_BUCKET
+            self.prefix = CHATBOT_PREFIX
+            
+        self.s3 = init_s3_client(bucket_type)
+        logger.info(f"S3Client initialized: bucket={self.bucket_name}, prefix={self.prefix}")
+
         print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
         
         # S3 클라이언트 초기화
@@ -803,126 +816,104 @@ async def api_register(register_data: RegisterRequest):
     else:
         return JSONResponse(content={"message": message}, status_code=400)
 
-@app.post("/api/end-chat")
-async def end_chat(request: EndChatRequest, req: Request):
-    username = req.cookies.get("user_id")
-    if not username:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    for msg in request.messages:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-        if content:
-            save_chat_message(username, role, content)
-    return {"message": "채팅 기록이 저장되었습니다."}
-
-@app.get("/api/check-auth")
-async def check_auth(request: Request):
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    user = member_manager.get_user(user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return JSONResponse(content={"username": user["username"], "message": "인증 성공"})
-
-@app.get("/api/logout")
-def logout(request: Request):
-    response = RedirectResponse(url='/login')
-    response.delete_cookie(key="user_id")
-    return response
+# 감정별 응답 딕셔너리
+emotion_responses = {
+    "기쁨": [
+        "정말 기쁜 일이시군요! 기분이 좋아 보이네요 😊",
+        "기쁜 일이 있으셨다니 다행이에요! 더 자세히 들려주실 수 있나요?",
+        "즐거운 일이 있으셨군요! 기분이 좋아지는 대화네요.",
+        "기쁜 마음이 전해져요! 계속해서 이야기해 주세요.",
+        "행복한 일이 있으셨군요! 더 자세히 알려주세요.",
+        "웃음이 가득한 하루가 되셨네요! 😄",
+        "기쁨이 느껴지는 대화예요! 더 들려주실 수 있나요?",
+        "행복한 에너지가 느껴져요! 기분이 좋아지네요.",
+        "당신의 기쁨이 제게도 전해져요! 😊",
+        "기쁜 소식이 있으셨나 봐요! 자세히 들려주세요.",
+        "웃음이 멈추지 않으시네요! 무슨 일이신가요?",
+        "행복한 순간을 함께 나눠주셔서 감사해요!"
+    ],
+    "분노": [
+        "화가 나시는 마음, 충분히 이해해요. 속 시원히 털어놓으세요 😠",
+        "정말 화가 나시겠어요. 더 자세히 말씀해 주시겠어요?",
+        "화가 날 만한 일이셨군요. 감정을 표현해 주셔서 감사합니다.",
+        "속상한 마음이 느껴져요. 더 말씀해 주실 수 있나요?",
+        "분노를 느끼시는 게 당연하세요. 계속 이야기해 주세요.",
+        "화가 나실 만한 상황이시군요. 마음껏 표현해 주세요. 💢",
+        "분노가 느껴지네요. 제가 도울 수 있는 방법이 있을까요?",
+        "화가 나는 감정을 표현해 주셔서 감사해요. 계속 말씀해 주세요.",
+        "정말 속상하셨겠어요. 제가 잘 듣고 있어요.",
+        "분노를 느끼는 건 자연스러운 일이에요. 마음껏 털어놓으세요.",
+        "화가 나는 일이 있으셨군요. 같이 해결 방법을 찾아볼까요?",
+        "당신의 감정에 공감해요. 마음껏 말씀해 주세요."
+    ],
+    "슬픔": [
+        "마음이 아프시겠어요. 제가 여기 있어요 😢",
+        "슬픈 일이 있으셨군요. 말씀해 주셔서 감사합니다.",
+        "마음이 무거우시겠어요. 더 자세히 나눠보실래요?",
+        "슬픔을 느끼고 계시군요. 제가 도울 수 있는 게 있을까요?",
+        "마음이 아픈 일이 있으셨군요. 이야기해 주셔서 감사합니다.",
+        "슬픔이 느껴지는 목소리예요. 제가 여기서 듣고 있을게요. 💔",
+        "마음이 아프실 것 같아요. 조금씩 말씀해 보실래요?",
+        "슬픔은 나누면 반이 된다고 하잖아요. 제가 함께 할게요.",
+        "눈물을 흘리셔도 괜찮아요. 제가 여기 있어요.",
+        "마음이 무겁게 느껴지시나 봐요. 함께 이야기해 볼까요?",
+        "슬픔을 느끼는 건 당연한 일이에요. 제가 지켜보고 있을게요.",
+        "당신의 아픔을 이해하려 노력할게요. 계속 말씀해 주세요."
+    ],
+    "두려움": [
+        "불안하시겠어요. 안전하시다니 다행이에요 😨",
+        "두려우셨겠어요. 더 자세히 말씀해 주실 수 있나요?",
+        "불안한 마음이 느껴져요. 제가 도울 수 있는 게 있을까요?",
+        "두려움을 느끼시는 게 당연해요. 계속 이야기해 주세요.",
+        "불안한 마음이 드시는군요. 더 편안하게 말씀해 주세요.",
+        "무서운 일이 있으셨군요. 제가 여기서 지켜보고 있을게요. 🛡️",
+        "불안한 마음이 드시는군요. 함께 해결해 나가 볼까요?",
+        "두려움을 느끼는 건 자연스러운 일이에요. 안전하다고 말씀드릴게요.",
+        "불안할 때는 마음껏 이야기해 주세요. 제가 듣고 있을게요.",
+        "두려움을 털어놓으시면 조금은 나아지실 거예요.",
+        "안전한 공간이에요. 마음껏 두려움을 표현해 주세요.",
+        "제가 옆에서 지켜보고 있을게요. 안심하세요."
+    ],
+    "놀람": [
+        "놀라우셨겠어요! 어떤 일이 있었는지 더 들려주실 수 있나요? 😲",
+        "깜짝 놀라셨겠어요! 더 자세한 이야기 해주실래요?",
+        "예상치 못한 일이셨군요! 어떤 기분이 드시나요?",
+        "놀라운 일이 있으셨군요! 더 말씀해 주세요.",
+        "깜짝 놀라셨을 것 같아요. 계속 이야기해 주실 수 있나요?",
+        "놀라운 일이 있으셨군요! 더 자세히 들려주세요! 🤯",
+        "깜짝 놀라셨을 것 같아요. 무슨 일이 있었는지 말씀해 주실래요?",
+        "예상치 못한 일이시군요! 어떤 기분이 드시나요?",
+        "놀라운 소식이 있으셨나 봐요! 자세히 알려주세요.",
+        "깜짝 놀라셨을 것 같아요. 괜찮으신가요?",
+        "놀라운 일이 있으셨군요! 제가 도울 수 있는 게 있나요?",
+        "예상치 못한 일이시군요! 더 자세히 이야기해 주실 수 있나요?"
+    ],
+    "혐오": [
+        "불쾌하셨겠어요. 더 자세히 말씀해 주실 수 있나요? 🤢",
+        "불편하신 마음이 느껴져요. 이야기해 주셔서 감사합니다.",
+        "불쾌한 경험이셨군요. 더 자세히 나눠보실래요?",
+        "혐오스러운 일이 있으셨군요. 제가 도울 수 있는 게 있을까요?",
+        "불편한 감정이 드시는군요. 더 편하게 말씀해 주세요.",
+        "불쾌한 일이 있으셨군요. 마음껏 털어놓으세요. 🚫",
+        "불편한 감정이 드시는 것 같아요. 더 자세히 말씀해 주실 수 있나요?",
+        "혐오스러운 경험이셨군요. 제가 여기서 듣고 있을게요.",
+        "불쾌한 일이 있으셨다니 안타깝네요. 이야기해 주셔서 감사합니다.",
+        "혐오스러운 상황이셨군요. 함께 해결 방법을 찾아볼까요?",
+        "불편한 감정을 표현해 주셔서 감사해요. 계속 말씀해 주세요.",
+        "불쾌한 경험이셨을 것 같아요. 제가 도울 수 있는 게 있을까요?"
+    ]
+}
 
 @app.get("/api/chat-data")
 async def get_chat_data():
     # 필요시 실제 데이터로 교체
     return JSONResponse({"categories": ["일상", "업무", "학습", "여행", "음식"]})
 
-
-        emotion_responses = {
-            "기쁨": [
-                "정말 기쁜 일이시군요! 기분이 좋아 보이네요 😊",
-                "기쁜 일이 있으셨다니 다행이에요! 더 자세히 들려주실 수 있나요?",
-                "즐거운 일이 있으셨군요! 기분이 좋아지는 대화네요.",
-                "기쁜 마음이 전해져요! 계속해서 이야기해 주세요.",
-                "행복한 일이 있으셨군요! 더 자세히 알려주세요.",
-                "웃음이 가득한 하루가 되셨네요! 😄",
-                "기쁨이 느껴지는 대화예요! 더 들려주실 수 있나요?",
-                "행복한 에너지가 느껴져요! 기분이 좋아지네요.",
-                "당신의 기쁨이 제게도 전해져요! 😊",
-                "기쁜 소식이 있으셨나 봐요! 자세히 들려주세요.",
-                "웃음이 멈추지 않으시네요! 무슨 일이신가요?",
-                "행복한 순간을 함께 나눠주셔서 감사해요!"
-            ],
-            "분노": [
-                "화가 나시는 마음, 충분히 이해해요. 속 시원히 털어놓으세요 😠",
-                "정말 화가 나시겠어요. 더 자세히 말씀해 주시겠어요?",
-                "화가 날 만한 일이셨군요. 감정을 표현해 주셔서 감사합니다.",
-                "속상한 마음이 느껴져요. 더 말씀해 주실 수 있나요?",
-                "분노를 느끼시는 게 당연하세요. 계속 이야기해 주세요.",
-                "화가 나실 만한 상황이시군요. 마음껏 표현해 주세요. 💢",
-                "분노가 느껴지네요. 제가 도울 수 있는 방법이 있을까요?",
-                "화가 나는 감정을 표현해 주셔서 감사해요. 계속 말씀해 주세요.",
-                "정말 속상하셨겠어요. 제가 잘 듣고 있어요.",
-                "분노를 느끼는 건 자연스러운 일이에요. 마음껏 털어놓으세요.",
-                "화가 나는 일이 있으셨군요. 같이 해결 방법을 찾아볼까요?",
-                "당신의 감정에 공감해요. 마음껏 말씀해 주세요."
-            ],
-            "슬픔": [
-                "마음이 아프시겠어요. 제가 여기 있어요 😢",
-                "슬픈 일이 있으셨군요. 말씀해 주셔서 감사합니다.",
-                "마음이 무거우시겠어요. 더 자세히 나눠보실래요?",
-                "슬픔을 느끼고 계시군요. 제가 도울 수 있는 게 있을까요?",
-                "마음이 아픈 일이 있으셨군요. 이야기해 주셔서 감사합니다.",
-                "슬픔이 느껴지는 목소리예요. 제가 여기서 듣고 있을게요. 💔",
-                "마음이 아프실 것 같아요. 조금씩 말씀해 보실래요?",
-                "슬픔은 나누면 반이 된다고 하잖아요. 제가 함께 할게요.",
-                "눈물을 흘리셔도 괜찮아요. 제가 여기 있어요.",
-                "마음이 무겁게 느껴지시나 봐요. 함께 이야기해 볼까요?",
-                "슬픔을 느끼는 건 당연한 일이에요. 제가 지켜보고 있을게요.",
-                "당신의 아픔을 이해하려 노력할게요. 계속 말씀해 주세요."
-            ],
-            "두려움": [
-                "불안하시겠어요. 안전하시다니 다행이에요 😨",
-                "두려우셨겠어요. 더 자세히 말씀해 주실 수 있나요?",
-                "불안한 마음이 느껴져요. 제가 도울 수 있는 게 있을까요?",
-                "두려움을 느끼시는 게 당연해요. 계속 이야기해 주세요.",
-                "불안한 마음이 드시는군요. 더 편안하게 말씀해 주세요.",
-                "무서운 일이 있으셨군요. 제가 여기서 지켜보고 있을게요. 🛡️",
-                "불안한 마음이 드시는군요. 함께 해결해 나가 볼까요?",
-                "두려움을 느끼는 건 자연스러운 일이에요. 안전하다고 말씀드릴게요.",
-                "불안할 때는 마음껏 이야기해 주세요. 제가 듣고 있을게요.",
-                "두려움을 털어놓으시면 조금은 나아지실 거예요.",
-                "안전한 공간이에요. 마음껏 두려움을 표현해 주세요.",
-                "제가 옆에서 지켜보고 있을게요. 안심하세요."
-            ],
-            "놀람": [
-                "놀라우셨겠어요! 어떤 일이 있었는지 더 들려주실 수 있나요? 😲",
-                "깜짝 놀라셨겠어요! 더 자세한 이야기 해주실래요?",
-                "예상치 못한 일이셨군요! 어떤 기분이 드시나요?",
-                "놀라운 일이 있으셨군요! 더 말씀해 주세요.",
-                "깜짝 놀라셨을 것 같아요. 계속 이야기해 주실 수 있나요?",
-                "놀라운 일이 있으셨군요! 더 자세히 들려주세요! 🤯",
-                "깜짝 놀라셨을 것 같아요. 무슨 일이 있었는지 말씀해 주실래요?",
-                "예상치 못한 일이시군요! 어떤 기분이 드시나요?",
-                "놀라운 소식이 있으셨나 봐요! 자세히 알려주세요.",
-                "깜짝 놀라셨을 것 같아요. 괜찮으신가요?",
-                "놀라운 일이 있으셨군요! 제가 도울 수 있는 게 있나요?",
-                "예상치 못한 일이시군요! 더 자세히 이야기해 주실 수 있나요?"
-            ],
-            "혐오": [
-                "불쾌하셨겠어요. 더 자세히 말씀해 주실 수 있나요? 🤢",
-                "불편하신 마음이 느껴져요. 이야기해 주셔서 감사합니다.",
-                "불쾌한 경험이셨군요. 더 자세히 나눠보실래요?",
-                "혐오스러운 일이 있으셨군요. 제가 도울 수 있는 게 있을까요?",
-                "불편한 감정이 드시는군요. 더 편하게 말씀해 주세요.",
-                "불쾌한 일이 있으셨군요. 마음껏 털어놓으세요. 🚫",
-                "불편한 감정이 드시는 것 같아요. 더 자세히 말씀해 주실 수 있나요?",
-                "혐오스러운 경험이셨군요. 제가 여기서 듣고 있을게요.",
-                "불쾌한 일이 있으셨다니 안타깝네요. 이야기해 주셔서 감사합니다.",
-                "혐오스러운 상황이셨군요. 함께 해결 방법을 찾아볼까요?",
-                "불편한 감정을 표현해 주셔서 감사해요. 계속 말씀해 주세요.",
-                "불쾌한 경험이셨을 것 같아요. 제가 도울 수 있는 게 있을까요?"
-            ]
-        }
+@app.post("/api/chat")
+async def chat(chat_request: ChatRequest, request: Request):
+    """테스트 모드인 경우 감정별 응답 반환"""
+    if chat_request.is_test:
+        import random
         
         # 현재 감정 가져오기
         current_emotion = chat_request.emotion
