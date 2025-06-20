@@ -3,6 +3,7 @@ import json
 import hashlib
 import logging
 from pathlib import Path
+import botocore
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
@@ -347,11 +348,21 @@ class S3Client:
 
     def download_file(self, key: str, file_path: str):
         try:
+            # S3에서 파일 다운로드
             self.s3.download_file(self.bucket_name, key, file_path)
             logger.info(f"파일 다운로드 성공: {key}")
             return True
+        except botocore.exceptions.ClientError as e:
+            # S3 클라이언트 에러 처리
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                logger.error(f"파일을 찾을 수 없습니다: {key}")
+            else:
+                logger.error(f"S3 클라이언트 에러: {error_code}")
+            return False
         except Exception as e:
-            logger.error(f"파일 다운로드 실패: {e}")
+            # 기타 예외 처리
+            logger.error(f"파일 다운로드 실패: {str(e)}")
             return False
 
     def list_files(self, prefix: str = ''):
