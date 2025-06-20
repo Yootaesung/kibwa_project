@@ -296,6 +296,22 @@ async def root():
     """루트 경로를 /login으로 리다이렉트합니다."""
     return RedirectResponse(url="/login")
 
+@app.get("/login")
+async def login_page(request: Request):
+    """로그인 페이지를 반환합니다."""
+    # 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
+    if request.cookies.get("user_id"):
+        return RedirectResponse(url="/chat")
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.get("/chat")
+async def chat_page(request: Request):
+    """채팅 페이지를 반환합니다."""
+    # 로그인되지 않은 사용자는 로그인 페이지로 리다이렉트
+    if not request.cookies.get("user_id"):
+        return RedirectResponse(url="/login")
+    return templates.TemplateResponse("index.html", {"request": request})
+
 # ---------------------------
 # 5. 모델
 # ---------------------------
