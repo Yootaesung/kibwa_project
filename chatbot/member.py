@@ -2,10 +2,10 @@ import json
 import hashlib
 import os
 import secrets
+import time
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Optional, Tuple, Any
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from pymongo.errors import DuplicateKeyError, OperationFailure
 from bson import ObjectId
 from config.settings import settings
@@ -22,36 +22,48 @@ class MongoDBManager:
     
     def _initialize(self):
         """MongoDB 연결 초기화"""
-        # 호스트의 IP 주소를 사용하여 MongoDB에 연결
-        # Docker 컨테이너 내부에서 호스트의 MongoDB에 접근하기 위해 'host.docker.internal' 사용
-        # Linux에서는 --add-host=host.docker.internal:host-gateway 옵션이 필요할 수 있음
-        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://host.docker.internal:27017/')
+        # 환경 변수에서 MongoDB URI를 가져오고, 없으면 기본값으로 localhost 사용
+        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
         logger.info(f"Connecting to MongoDB at {self.mongo_uri}")
         
-        try:
-            self.client = MongoClient(
-                self.mongo_uri,
-                serverSelectionTimeoutMS=5000,  # 5초 타임아웃
-                connectTimeoutMS=10000,         # 연결 타임아웃 10초
-                socketTimeoutMS=45000,          # 소켓 타임아웃 45초
-                connect=False                   # 지연 연결 사용
-            )
-            # 연결 테스트
-            self.client.admin.command('ping')
-            logger.info("Successfully connected to MongoDB")
-            
-            self.db = self.client["member_information"]
-            self.users = self.db["users"]
-            
-            # 인덱스 생성 (username은 고유해야 함)
-            self.users.create_index("username", unique=True)
-            logger.info("Database and indexes are ready")
-            
-        except Exception as e:
-            logger.error(f"Failed to connect to MongoDB: {e}")
-            logger.error("Please check if MongoDB is running and accessible")
-            # 애플리케이션을 계속 실행할 수 있도록 예외를 던지지 않음
-            # 대신 연결이 필요한 메서드에서 연결 상태를 확인하도록 함
+        # 연결 재시도 로직 추가
+        max_retries = 3
+        retry_delay = 2  # 초 단위
+        
+        for attempt in range(max_retries):
+            try:
+                self.client = MongoClient(
+                    self.mongo_uri,
+                    serverSelectionTimeoutMS=5000,  # 5초 타임아웃
+                    connectTimeoutMS=10000,         # 연결 타임아웃 10초
+                    socketTimeoutMS=45000,          # 소켓 타임아웃 45초
+                    connect=False,                  # 지연 연결 사용
+                    server_api=ServerApi('1')       # Stable API 사용
+                )
+                
+                # 연결 테스트 (ping 명령 사용)
+                self.client.admin.command('ping')
+                logger.info("Successfully connected to MongoDB")
+                
+                self.db = self.client["member_information"]
+                self.users = self.db["users"]
+                
+                # 인덱스 생성 (username은 고유해야 함)
+                self.users.create_index("username", unique=True)
+                logger.info("Database and indexes are ready")
+                return  # 연결 성공 시 메서드 종료
+                
+            except Exception as e:
+                logger.warning(f"MongoDB 연결 시도 {attempt + 1}/{max_retries} 실패: {e}")
+                if attempt < max_retries - 1:  # 마지막 시도가 아니라면
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # 지수 백오프
+                else:
+                    logger.error("MongoDB에 연결할 수 없습니다. 애플리케이션을 계속 실행하지만 데이터베이스 기능은 사용할 수 없습니다.")
+                    # 연결 실패 시에도 애플리케이션은 계속 실행되지만, 데이터베이스 기능은 사용할 수 없음
+                    self.client = None
+                    self.db = None
+                    self.users = None
     
     def close(self):
         """MongoDB 연결 종료"""
@@ -210,5 +222,5 @@ class MemberManager:
             logger.error(f"세션 업데이트 중 오류 발생: {str(e)}")
             return False
 
-# 기존 코드와의 호환성을 위한 별칭
-MemberManager = S3MemberManager
+# MongoDB를 사용하는 MemberManager 클래스를 기본으로 사용
+MemberManager = MemberManager
