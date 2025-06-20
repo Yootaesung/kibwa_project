@@ -22,13 +22,28 @@ class MongoDBManager:
     
     def _initialize(self):
         """MongoDB 연결 초기화"""
-        self.mongo_uri = "mongodb://3.107.174.223:27017/"
-        self.client = MongoClient(self.mongo_uri)
-        self.db = self.client["member_information"]
-        self.users = self.db["users"]
+        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        logger.info(f"Connecting to MongoDB at {self.mongo_uri}")
         
-        # 인덱스 생성 (username은 고유해야 함)
-        self.users.create_index("username", unique=True)
+        try:
+            self.client = MongoClient(
+                self.mongo_uri,
+                serverSelectionTimeoutMS=5000  # 5초 타임아웃
+            )
+            # 연결 테스트
+            self.client.server_info()  # 연결 확인
+            logger.info("Successfully connected to MongoDB")
+            
+            self.db = self.client["member_information"]
+            self.users = self.db["users"]
+            
+            # 인덱스 생성 (username은 고유해야 함)
+            self.users.create_index("username", unique=True)
+            logger.info("Database and indexes are ready")
+            
+        except Exception as e:
+            logger.error(f"Failed to connect to MongoDB: {e}")
+            raise
     
     def close(self):
         """MongoDB 연결 종료"""
