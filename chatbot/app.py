@@ -330,43 +330,8 @@ class S3Client:
                 Prefix=prefix
             )
             return [content['Key'] for content in response.get('Contents', [])]
-                        if isinstance(emotion_list, list):
-                            for item in emotion_list:
-                                if isinstance(item, dict) and all(field in item for field in 
-                                    ['age_group', 'gender', 'role', 'situation', 'emotion', 'content']):
-                                    messages.append(item)
-                    return messages
-                # 단일 객체인 경우
-                elif all(field in data for field in 
-                        ['age_group', 'gender', 'role', 'situation', 'emotion', 'content']):
-                    return [data]
-                else:
-                    print(f"Invalid data format in scenario {key}")
-                    return []
-            # 리스트 형식인 경우
-            elif isinstance(data, list):
-                # 모든 항목이 올바른 형식인지 확인
-                if all(isinstance(item, dict) and 
-                      all(field in item for field in 
-                          ['age_group', 'gender', 'role', 'situation', 'emotion', 'content'])
-                      for item in data):
-                    return data
-                else:
-                    # 일부 항목만 올바른 형식인 경우 필터링
-                    valid_items = [item for item in data 
-                                if isinstance(item, dict) and 
-                                all(field in item for field in 
-                                    ['age_group', 'gender', 'role', 'situation', 'emotion', 'content'])]
-                    if valid_items:
-                        print(f"Filtered out {len(data) - len(valid_items)} invalid items from {key}")
-                        return valid_items
-                    return []
-            else:
-                print(f"Unsupported data format in scenario {key}")
-                return []
-                
         except Exception as e:
-            print(f"Error getting scenario {key}: {str(e)}")
+            logger.error(f"Error listing files in S3: {e}")
             return []
 
 s3_client = S3Client()
