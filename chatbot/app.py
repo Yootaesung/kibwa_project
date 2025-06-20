@@ -60,6 +60,8 @@ logger = logging.getLogger(__name__)
 # 2. FastAPI 인스턴스 및 미들웨어
 # ---------------------------
 app = FastAPI()
+
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -68,6 +70,26 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+# 인증 미들웨어
+@app.middleware("http")
+async def verify_auth(request: Request, call_next):
+    # /login, /register, /api/login, /api/register, /test는 인증이 필요하지 않음
+    if request.url.path in ["/login", "/register", "/api/login", "/api/register", "/test", "/api/test/scenarios"]:
+        return await call_next(request)
+    
+    # 채팅 페이지나 API 요청일 때 인증 확인
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    
+    # MongoDB에서 사용자 검증
+    user = member_manager.get_user(user_id)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    
+    response = await call_next(request)
+    return response
 
 # 정적 파일/템플릿 등록
 # 정적 파일 설정
@@ -614,14 +636,20 @@ async def register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest):
+async def api_login(login_data: LoginRequest, response: Response):
     """로그인 API 엔드포인트"""
     success, message = member_manager.login(login_data.username, login_data.password)
     if success:
-        return JSONResponse(
-            content={"message": message},
-            status_code=status.HTTP_200_OK
+        response = RedirectResponse(url="/chat", status_code=status.HTTP_303_SEE_OTHER)
+        response.set_cookie(
+            key="user_id",
+            value=login_data.username,
+            httponly=True,
+            max_age=3600,
+            samesite='lax',
+            secure=False
         )
+        return response
     return JSONResponse(
         content={"message": message},
         status_code=401
