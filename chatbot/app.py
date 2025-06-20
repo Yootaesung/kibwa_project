@@ -194,14 +194,15 @@ def save_chat_message(username: str, role: str, content: str):
     # S3에 저장
     try:
         s3_client.put_object(
-            Bucket=S3_BUCKET,
-            Key=log_key,
-            Body=json.dumps(chat_history, ensure_ascii=False, indent=2).encode('utf-8'),
-            ContentType='application/json'
+            key=log_key,
+            body=json.dumps(chat_history, ensure_ascii=False, indent=2).encode('utf-8'),
+            content_type='application/json'
         )
+        logger.info(f"Chat message saved successfully: {log_key}")
+        return True
     except Exception as e:
-        logger.error(f"채팅 기록 저장 중 오류: {e}")
-        raise HTTPException(status_code=500, detail="채팅 기록 저장에 실패했습니다.")
+        logger.error(f"Error saving chat message: {e}")
+        return False
 
 def get_chat_context(username: str) -> List[Dict[str, str]]:
     return load_chat_history(username)
@@ -383,6 +384,41 @@ class S3Client:
         except Exception as e:
             logger.error(f"Error listing files in S3: {e}")
             return []
+
+    def get_object(self, key: str):
+        try:
+            response = self.s3.get_object(
+                Bucket=self.bucket_name,
+                Key=key
+            )
+            return response
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                logger.error(f"Object not found: {key}")
+                return None
+            else:
+                logger.error(f"S3 get object error: {e}")
+                raise
+        except Exception as e:
+            logger.error(f"Error getting object: {str(e)}")
+            raise
+
+    def put_object(self, key: str, body: bytes, content_type: str = 'application/json'):
+        try:
+            self.s3.put_object(
+                Bucket=self.bucket_name,
+                Key=key,
+                Body=body,
+                ContentType=content_type
+            )
+            logger.info(f"Object uploaded successfully: {key}")
+            return True
+        except botocore.exceptions.ClientError as e:
+            logger.error(f"S3 put object error: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error uploading object: {str(e)}")
+            raise
 
 s3_client = S3Client()
 
