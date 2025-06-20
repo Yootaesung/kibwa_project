@@ -503,51 +503,64 @@ class S3Client:
             prefix = f"{self.prefix}test_scenarios/"
             logger.info(f"Listing scenarios with prefix: {prefix} in bucket: {self.bucket_name}")
             
-            response = self.s3.list_objects_v2(
+            # S3 버킷 내용 나열
+            paginator = self.s3.get_paginator('list_objects_v2')
+            pages = paginator.paginate(
                 Bucket=self.bucket_name,
                 Prefix=prefix,
                 Delimiter='/'
             )
             
-            # 디렉토리 목록에서 시나리오 이름 추출
             scenarios = []
             
-            # CommonPrefixes에서 디렉토리 목록 가져오기
-            if 'CommonPrefixes' in response:
-                for obj in response['CommonPrefixes']:
-                    scenario_key = obj['Prefix']
-                    if scenario_key.endswith('/'):
-                        scenario_key = scenario_key[:-1]  # 마지막 슬래시 제거
-                    scenario_name = scenario_key.split('/')[-1]
-                    
-                    # 시나리오 파일이 있는지 확인
-                    try:
-                        self.s3.head_object(
-                            Bucket=self.bucket_name,
-                            Key=f"{scenario_key}/scenario.json"
-                        )
+            # 페이지별로 결과 처리
+            for page in pages:
+                # CommonPrefixes에서 디렉토리 목록 가져오기
+                if 'CommonPrefixes' in page:
+                    for obj in page['CommonPrefixes']:
+                        scenario_key = obj['Prefix'].rstrip('/')  # 마지막 슬래시 제거
+                        scenario_name = scenario_key.split('/')[-1]
                         
-                        # 디렉토리 메타데이터 가져오기 (마지막 수정일 등)
-                        dir_obj = self.s3.head_object(
-                            Bucket=self.bucket_name,
-                            Key=f"{scenario_key}/"
-                        )
-                        
-                        scenarios.append({
-                            'key': scenario_key,
-                            'name': scenario_name,
-                            'last_modified': dir_obj.get('LastModified', datetime.now(timezone.utc)).isoformat()
-                        })
-                    except Exception as e:
-                        logger.warning(f"Skipping invalid scenario directory {scenario_key}: {str(e)}")
-                        continue
+                        # 시나리오 파일이 있는지 확인
+                        try:
+                            # scenario.json 파일이 있는지 확인
+                            scenario_file = f"{scenario_key}/scenario.json"
+                            self.s3.head_object(
+                                Bucket=self.bucket_name,
+                                Key=scenario_file
+                            )
+                            
+                            # 시나리오 정보 수집
+                            scenario_info = {
+                                'key': scenario_key,
+                                'name': scenario_name,
+                                'last_modified': datetime.now(timezone.utc).isoformat()
+                            }
+                            
+                            # 디렉토리 메타데이터가 있으면 추가
+                            try:
+                                dir_obj = self.s3.head_object(
+                                    Bucket=self.bucket_name,
+                                    Key=f"{scenario_key}/"
+                                )
+                                if 'LastModified' in dir_obj:
+                                    scenario_info['last_modified'] = dir_obj['LastModified'].isoformat()
+                            except Exception as e:
+                                logger.warning(f"Could not get directory metadata for {scenario_key}: {str(e)}")
+                            
+                            scenarios.append(scenario_info)
+                            logger.info(f"Found valid scenario: {scenario_name} at {scenario_key}")
+                            
+                        except Exception as e:
+                            logger.warning(f"Skipping invalid scenario directory {scenario_key}: {str(e)}")
+                            continue
             
-            logger.info(f"Found {len(scenarios)} valid scenarios")
+            logger.info(f"Found {len(scenarios)} valid scenarios in total")
             return scenarios
             
         except Exception as e:
             logger.error(f"Error listing test scenarios: {str(e)}", exc_info=True)
-            return []
+            raise
 
     def put_object(self, key: str, body: bytes, content_type: str = 'application/json'):
         """S3에 객체를 업로드합니다."""
@@ -571,29 +584,45 @@ class S3Client:
 async def get_test_scenarios():
     """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
     try:
-        # 테스트 시나리오는 test 버킷에서 가져옵니다.
-        s3_client = S3Client(bucket_type='test')
-        scenarios = s3_client.list_scenarios()
+        logger.info("Fetching test scenarios from S3...")
         
-        # 시나리오가 없는 경우 빈 배열 반환
-        if not scenarios:
-            logger.warning("No test scenarios found in S3 bucket")
-            return {"scenarios": []}
+        # 테스트 시나리오는 test 버킷에서 가져옵니다.
+        try:
+            s3_client = S3Client(bucket_type='test')
+            logger.info(f"S3 client initialized with bucket: {s3_client.bucket_name}, prefix: {s3_client.prefix}")
             
-        # 시나리오 키에서 불필요한 접두어 제거
-        for scenario in scenarios:
-            if scenario['key'].startswith(s3_client.prefix):
-                scenario['key'] = scenario['key'][len(s3_client.prefix):]
-                
-        return {"scenarios": scenarios}
+            scenarios = s3_client.list_scenarios()
+            logger.info(f"Retrieved {len(scenarios)} scenarios from S3")
+            
+            # 시나리오가 없는 경우 경고 로그만 남기고 빈 배열 반환
+            if not scenarios:
+                logger.warning("No test scenarios found in S3 bucket")
+                return {"scenarios": []}
+            
+            # 시나리오 키에서 불필요한 접두어 제거
+            for scenario in scenarios:
+                if 'key' in scenario and scenario['key'].startswith(s3_client.prefix):
+                    scenario['original_key'] = scenario['key']  # 원본 키 보존 (디버깅용)
+                    scenario['key'] = scenario['key'][len(s3_client.prefix):]
+            
+            logger.info(f"Returning {len(scenarios)} scenarios to frontend")
+            return {"scenarios": scenarios}
+            
+        except Exception as e:
+            logger.error(f"S3 operation failed: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"S3 작업 중 오류가 발생했습니다: {str(e)}"
+            )
         
     except HTTPException as he:
+        logger.error(f"HTTP error in get_test_scenarios: {str(he.detail)}")
         raise he
     except Exception as e:
-        logger.error(f"Error listing test scenarios: {str(e)}")
+        logger.error(f"Unexpected error in get_test_scenarios: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500, 
-            detail=f"테스트 시나리오 목록을 불러오는 중 오류가 발생했습니다: {str(e)}"
+            detail=f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"
         )
 
 @app.get("/api/test/scenario/{scenario_key}")
@@ -734,9 +763,7 @@ async def save_chat_logs(data: dict):
             detail=f"채팅 로그를 저장하는 중 오류가 발생했습니다: {str(e)}"
         )
 
-@app.get("/register")
-async def register(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+
 
 @app.post("/api/login")
 async def api_login(login_data: LoginRequest, response: Response):
@@ -809,13 +836,7 @@ async def get_chat_data():
     # 필요시 실제 데이터로 교체
     return JSONResponse({"categories": ["일상", "업무", "학습", "여행", "음식"]})
 
-@app.post("/api/chat")
-async def chat(chat_request: ChatRequest, request: Request):
-    # 테스트 모드인 경우 감정별 응답 반환
-    if chat_request.is_test:
-        import random
-        
-        # 감정별 응답 목록
+
         emotion_responses = {
             "기쁨": [
                 "정말 기쁜 일이시군요! 기분이 좋아 보이네요 😊",
