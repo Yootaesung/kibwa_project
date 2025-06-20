@@ -318,23 +318,52 @@ async def chat_page(request: Request):
 @app.post("/api/chat")
 async def handle_chat_message(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
-    # 로그인 확인
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    
-    # 사용자 정보 가져오기
-    user = member_manager.get_user(user_id)
-    if not user:
-        response = JSONResponse(
-            content={"error": "사용자 정보를 찾을 수 없습니다."},
-            status_code=404
+    try:
+        # 로그인 확인
+        user_id = request.cookies.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+        
+        # 사용자 정보 확인
+        user = member_manager.get_user(user_id)
+        if not user:
+            response = JSONResponse(
+                content={"error": "사용자 정보를 찾을 수 없습니다."},
+                status_code=404
+            )
+            response.delete_cookie(key="user_id")
+            return response
+        
+        # 테스트 모드인 경우 감정별 응답 반환
+        if chat_request.is_test:
+            import random
+            emotion_responses = {
+                "기쁨": ["기쁜 일이시군요! 기분이 좋아 보이네요 😊"],
+                "분노": ["화가 나시는군요. 마음을 진정시켜 보세요."],
+                "슬픔": ["슬프시군요. 기분 전환하실 수 있으면 좋겠어요."],
+                "불안": ["걱정되시는군요. 안정을 찾을 수 있길 바랍니다."],
+                "중립": ["이해했어요. 더 자세히 말씀해 주실 수 있나요?"],
+                "놀람": ["놀라우셨겠어요! 어떤 일이 있었는지 더 들려주실 수 있나요? 😲"]
+            }
+            response = random.choice(emotion_responses.get(chat_request.emotion, ["이해했어요."]))
+            return {"response": response, "emotion": chat_request.emotion}
+        
+        # 실제 채팅 처리 로직
+        response = await chatbot.generate_response(
+            chat_request.message,
+            username=user_id,
+            chat_history=[]
         )
-        response.delete_cookie(key="user_id")
-        return response
-    
-    # 채팅 처리 로직 (기존 chat 함수와 동일)
-    return await chat(chat_request, request)
+        
+        # 채팅 기록 저장
+        save_chat_message(user_id, "user", chat_request.message)
+        save_chat_message(user_id, "assistant", response)
+        
+        return {"response": response, "emotion": "중립"}
+        
+    except Exception as e:
+        logger.error(f"Error in handle_chat_message: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
 async def test_page(request: Request):
@@ -348,8 +377,12 @@ async def test_page(request: Request):
 async def register_page(request: Request):
     """회원가입 페이지를 반환합니다."""
     # 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
-    if request.cookies.get("user_id"):
-        return RedirectResponse(url="/chat")
+    user_id = request.cookies.get("user_id")
+    if user_id:
+        # 사용자 존재 여부 확인
+        user = member_manager.get_user(user_id)
+        if user:
+            return RedirectResponse(url="/chat")
     return templates.TemplateResponse("register.html", {"request": request})
 
 # ---------------------------
@@ -467,28 +500,53 @@ class S3Client:
         """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
         try:
             # 시나리오가 있는 디렉토리 목록 가져오기
+            prefix = f"{self.prefix}test_scenarios/"
+            logger.info(f"Listing scenarios with prefix: {prefix} in bucket: {self.bucket_name}")
+            
             response = self.s3.list_objects_v2(
                 Bucket=self.bucket_name,
-                Prefix=f"{self.prefix}test_scenarios/"
+                Prefix=prefix,
+                Delimiter='/'
             )
             
             # 디렉토리 목록에서 시나리오 이름 추출
             scenarios = []
-            if 'Contents' in response:
-                for obj in response['Contents']:
-                    # 디렉토리인 경우에만 추가
-                    if obj['Key'].endswith('/') and obj['Key'] != f"{self.prefix}test_scenarios/":
-                        scenario_name = obj['Key'].split('/')[-2]
-                        scenarios.append({
-                            'key': obj['Key'],
-                            'name': scenario_name,
-                            'last_modified': obj['LastModified'].isoformat()
-                        })
             
+            # CommonPrefixes에서 디렉토리 목록 가져오기
+            if 'CommonPrefixes' in response:
+                for obj in response['CommonPrefixes']:
+                    scenario_key = obj['Prefix']
+                    if scenario_key.endswith('/'):
+                        scenario_key = scenario_key[:-1]  # 마지막 슬래시 제거
+                    scenario_name = scenario_key.split('/')[-1]
+                    
+                    # 시나리오 파일이 있는지 확인
+                    try:
+                        self.s3.head_object(
+                            Bucket=self.bucket_name,
+                            Key=f"{scenario_key}/scenario.json"
+                        )
+                        
+                        # 디렉토리 메타데이터 가져오기 (마지막 수정일 등)
+                        dir_obj = self.s3.head_object(
+                            Bucket=self.bucket_name,
+                            Key=f"{scenario_key}/"
+                        )
+                        
+                        scenarios.append({
+                            'key': scenario_key,
+                            'name': scenario_name,
+                            'last_modified': dir_obj.get('LastModified', datetime.now(timezone.utc)).isoformat()
+                        })
+                    except Exception as e:
+                        logger.warning(f"Skipping invalid scenario directory {scenario_key}: {str(e)}")
+                        continue
+            
+            logger.info(f"Found {len(scenarios)} valid scenarios")
             return scenarios
             
         except Exception as e:
-            logger.error(f"Error listing test scenarios: {str(e)}")
+            logger.error(f"Error listing test scenarios: {str(e)}", exc_info=True)
             return []
 
     def put_object(self, key: str, body: bytes, content_type: str = 'application/json'):
