@@ -22,8 +22,8 @@ class MongoDBManager:
     
     def _initialize(self):
         """MongoDB 연결 초기화"""
-        # 환경 변수에서 MongoDB URI를 가져오고, 없으면 기본값으로 localhost 사용
-        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        # 환경 변수에서 MongoDB URI를 가져오고, 없으면 기본값으로 사용
+        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://mongodb:27017/')  # Docker 컨테이너 내부에서 MongoDB 컨테이너로 연결
         logger.info(f"Connecting to MongoDB at {self.mongo_uri}")
         
         # 연결 재시도 로직 추가
