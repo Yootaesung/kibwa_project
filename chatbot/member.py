@@ -78,16 +78,15 @@ class MemberManager:
     def __init__(self):
         self.db = db_manager
         
-    def _hash_password(self, password: str) -> Tuple[str, str]:
+    def _hash_password(self, password: str, salt: str) -> str:
         """비밀번호를 해시화합니다."""
-        salt = secrets.token_hex(16)
         hashed = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode('utf-8'),
             salt.encode('utf-8'),
             100000
         ).hex()
-        return hashed, salt
+        return hashed
 
     def register(self, username: str, password: str) -> Tuple[bool, str]:
         """
@@ -101,25 +100,33 @@ class MemberManager:
             Tuple[bool, str]: (성공 여부, 메시지)
         """
         try:
-            # 비밀번호 해시화
-            hashed_password, salt = self._hash_password(password)
-            
-            # 회원 정보 생성
-            user_data = {
+            # 중복 체크
+            if self.check_member(username):
+                return False, "이미 등록된 사용자입니다."
+
+            # 비밀번호 해시화와 salt 생성
+            salt = secrets.token_hex(16)
+            hashed_password = self._hash_password(password, salt)
+
+            # 사용자 데이터 생성
+            member_data = {
                 'username': username,
                 'password': hashed_password,
                 'salt': salt,
-                'created_at': datetime.utcnow(),
-                'updated_at': datetime.utcnow()
+                'created_at': datetime.utcnow().isoformat(),
+                'last_login': None,
+                'is_active': True
             }
-            
+
             # MongoDB에 저장
-            self.db.users.insert_one(user_data)
-            
-            return True, "회원가입이 완료되었습니다."
-            
-        except DuplicateKeyError:
-            return False, "이미 존재하는 사용자명입니다."
+            try:
+                self.db.users.insert_one(member_data)
+                logger.info(f"회원가입 성공: {username}")
+                return True, "회원가입이 완료되었습니다."
+            except Exception as e:
+                logger.error(f"MongoDB 저장 중 오류 발생: {str(e)}")
+                return False, "회원가입 중 오류가 발생했습니다."
+
         except Exception as e:
             logger.error(f"회원가입 중 오류 발생: {e}")
             return False, f"회원가입 중 오류가 발생했습니다: {str(e)}"
