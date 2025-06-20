@@ -216,6 +216,23 @@ class SimpleChatbot:
             "5. 대답은 1-2문장으로 짧게 유지하세요.\n"
             "6. 영어 단어나 문장을 절대 사용하지 마세요.\n"
         )
+        self.emotion_keywords = {}
+
+    def load_emotion_keywords(self):
+        try:
+            # S3에서 감정 키워드 파일 다운로드
+            emotion_file_path = os.path.join(BASE_DIR, 'emotion_data', 'emotion_keywords.json')
+            s3_client.download_file('emotion_data/emotion_keywords.json', emotion_file_path)
+            
+            # 파일 읽기
+            with open(emotion_file_path, 'r', encoding='utf-8') as f:
+                self.emotion_keywords = json.load(f)
+            
+            logger.info("감정 키워드 로드 성공")
+            return self.emotion_keywords
+        except Exception as e:
+            logger.error(f"감정 키워드 로드 실패: {str(e)}")
+            return {}
 
     def generate_response(self, user_input: str, username: str = None, chat_history: list = None) -> str:
         try:
@@ -238,6 +255,24 @@ class SimpleChatbot:
             return bot_response
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")
+
+    def calculate_emotion_score(self, message: str, emotion_keywords: dict) -> dict:
+        """메시지에서 감정 점수를 계산합니다."""
+        try:
+            emotion_scores = {}
+            
+            # 각 감정별로 키워드 매칭
+            for emotion, keywords in emotion_keywords.items():
+                score = 0
+                for keyword in keywords:
+                    if keyword.lower() in message.lower():
+                        score += 1
+                emotion_scores[emotion] = score
+            
+            return emotion_scores
+        except Exception as e:
+            logger.error(f"감정 점수 계산 실패: {str(e)}")
+            return {}
             return "죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
 
 chatbot = SimpleChatbot()
@@ -300,19 +335,15 @@ class S3Client:
         )
     
     def list_scenarios(self):
-        response = self.s3.list_objects_v2(
-            Bucket=self.bucket_name,
-            Prefix=self.prefix
-        )
-        
-        scenarios = []
         try:
-            self.s3.upload_file(file_path, self.bucket_name, key)
-            logger.info(f"파일 업로드 성공: {key}")
-            return True
+            response = self.s3.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=self.prefix
+            )
+            return [content['Key'] for content in response.get('Contents', [])]
         except Exception as e:
-            logger.error(f"파일 업로드 실패: {e}")
-            return False
+            logger.error(f"Error listing scenarios in S3: {e}")
+            return []
 
     def download_file(self, key: str, file_path: str):
         try:
@@ -779,6 +810,21 @@ async def chat(chat_request: ChatRequest, request: Request):
     chat_context = get_chat_context(username)
     save_chat_message(username, "user", user_message)
     
+    # 감정 키워드 로드
+    try:
+        emotion_keywords = chatbot.load_emotion_keywords()
+    except Exception as e:
+        logger.error(f"감정 키워드 로드 실패: {str(e)}")
+        emotion_keywords = {}
+    
+    # 감정 점수 계산
+    try:
+        emotion_score = chatbot.calculate_emotion_score(user_message, emotion_keywords)
+    except Exception as e:
+        logger.error(f"감정 점수 계산 실패: {str(e)}")
+        emotion_score = {}
+    
+    # 챗봇 응답 생성
     response = chatbot.generate_response(
         user_input=user_message,
         username=username,
@@ -786,4 +832,4 @@ async def chat(chat_request: ChatRequest, request: Request):
     )
     
     save_chat_message(username, "assistant", response)
-    return {"response": response, "status": "success"}
+    return {"response": response, "status": "success", "emotion_score": emotion_score}
