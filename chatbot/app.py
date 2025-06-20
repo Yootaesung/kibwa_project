@@ -448,16 +448,6 @@ async def api_register(register_data: RegisterRequest):
             status_code=500,
             detail=f"서버에서 오류가 발생했습니다: {str(e)}"
         )
-            self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=body,
-                ContentType=content_type
-            )
-            logger.info(f"Object uploaded successfully: {key}")
-            return True
-        except botocore.exceptions.ClientError as e:
-            logger.error(f"S3 put object error: {e}")
             raise
         except Exception as e:
             logger.error(f"Error uploading object: {str(e)}")
