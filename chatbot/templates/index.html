@@ -553,9 +553,11 @@
         }
         
         // 감정 점수 업데이트 및 표시
-        function updateEmotionScores(newScores, showEmotion = false) {
-            // 새로운 감정 점수로 바로 업데이트 (가중 평균 제거)
-            Object.assign(emotionScores, newScores);
+        function updateEmotionScores(newScores, showEmotion = true) {
+            // 새로운 감정 점수가 있으면 업데이트
+            if (Object.keys(newScores).length > 0) {
+                Object.assign(emotionScores, newScores);
+            }
             
             // 현재 감정 결정 (가장 높은 점수)
             let maxScore = -1;
@@ -576,16 +578,10 @@
             
             currentEmotion = dominantEmotion;
             
-            // UI 업데이트: 메시지 표시 시에만 감정 표시, 그 외는 ... 표시
-            if (showEmotion) {
-                currentEmotionElement.textContent = `${emotionIcons[dominantEmotion]} ${dominantEmotion}`;
-                currentEmotionElement.style.backgroundColor = `${emotionColors[dominantEmotion]}20`; // 20% 투명도
-                currentEmotionElement.style.color = emotionColors[dominantEmotion];
-            } else {
-                currentEmotionElement.textContent = '...';
-                currentEmotionElement.style.backgroundColor = '#f8f9fa';
-                currentEmotionElement.style.color = '#4a6cfa';
-            }
+            // UI 업데이트: 항상 현재 감정 상태 표시
+            currentEmotionElement.textContent = `${emotionIcons[dominantEmotion]} ${dominantEmotion}`;
+            currentEmotionElement.style.backgroundColor = `${emotionColors[dominantEmotion]}20`; // 20% 투명도
+            currentEmotionElement.style.color = emotionColors[dominantEmotion];
             
             // 감정 점수 바 업데이트 (주석 처리됨)
             // updateEmotionBars();
@@ -651,9 +647,6 @@
             addMessage('...', true, messageId);
             userInput.value = '';
             
-            // 메시지 전송 시 감정 표시 비활성화
-            updateEmotionScores({}, false);
-            
             // 메시지 전송 후 입력창에 포커스
             userInput.focus();
 
@@ -694,8 +687,7 @@
                             }
                             addMessage(response.response, false);
                             
-                            // 응답 메시지 표시 시 감정 표시 비활성화
-                            updateEmotionScores({}, false);
+                            // 응답 메시지 표시 시 감정 상태 유지
                         }, 500);
                     } else {
                         console.error('Invalid response format:', response);
