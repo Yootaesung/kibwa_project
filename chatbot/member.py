@@ -4,6 +4,7 @@ import os
 import secrets
 import time
 from datetime import datetime
+from typing import Dict, Optional, Tuple, Any, AnyStr
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 from pymongo.errors import DuplicateKeyError, OperationFailure
