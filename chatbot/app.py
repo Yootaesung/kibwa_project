@@ -448,10 +448,6 @@ async def api_register(register_data: RegisterRequest):
             status_code=500,
             detail=f"서버에서 오류가 발생했습니다: {str(e)}"
         )
-            raise
-        except Exception as e:
-            logger.error(f"Error uploading object: {str(e)}")
-            raise
 
 @app.get("/api/test/scenarios")
 async def get_test_scenarios():
