@@ -153,18 +153,15 @@ class MemberManager:
             if not salt:
                 return False, "비밀번호 검증에 실패했습니다."
 
-            hashed_password = self._hash_password(password, salt)[0]
+            hashed_password = self._hash_password(password, salt)
             if user['password'] != hashed_password:
                 return False, "비밀번호가 일치하지 않습니다."
 
             # 로그인 성공
             self.update_session(username)  # 세션 업데이트
-            return True, "로그인 성공"
-            self._save_json_to_s3(member_key, member_data)
-                
             logger.info(f"로그인 성공: {username}")
-            return True, '로그인 성공', member_data
-            
+            return True, "로그인 성공"
+                
         except Exception as e:
             logger.error(f"로그인 중 오류 발생: {str(e)}")
             return False, '로그인 처리 중 오류가 발생했습니다.'
@@ -217,14 +214,19 @@ class MemberManager:
             bool: 업데이트 성공 여부
         """
         try:
-            member_key = self._get_member_key(username)
-            if self._s3_key_exists(member_key):
-                member_data = self._load_json_from_s3(member_key)
-                if member_data:
-                    member_data['last_login'] = datetime.utcnow().isoformat()
-                    self._save_json_to_s3(member_key, member_data)
-                    return True
-            return False
+            # MongoDB에서 사용자 정보 조회
+            user = self.db.users.find_one({'username': username})
+            if not user:
+                logger.error(f"세션 업데이트 실패: 사용자 데이터를 찾을 수 없습니다: {username}")
+                return False
+
+            # 마지막 로그인 시간 업데이트
+            self.db.users.update_one(
+                {'username': username},
+                {'$set': {'last_login': datetime.utcnow().isoformat()}}
+            )
+            logger.info(f"세션 업데이트 성공: {username}")
+            return True
         except Exception as e:
             logger.error(f"세션 업데이트 중 오류 발생: {str(e)}")
             return False
