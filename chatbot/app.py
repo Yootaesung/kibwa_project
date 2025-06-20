@@ -213,6 +213,15 @@ def save_chat_message(username: str, role: str, content: str):
 # ---------------------------
 # 4. Pydantic 모델
 # ---------------------------
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
 class ChatRequest(BaseModel):
     message: str
     action: str
@@ -346,8 +355,6 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
             response.delete_cookie(key="user_id")
             return response
         
-
-        
         # 실제 채팅 처리 로직
         response = await chatbot.generate_response(
             chat_request.message,
@@ -385,199 +392,62 @@ async def register_page(request: Request):
             return RedirectResponse(url="/chat")
     return templates.TemplateResponse("register.html", {"request": request})
 
-# ---------------------------
-# 4. S3 클라이언트 초기화
-# ---------------------------
-
-# S3 클라이언트 초기화 함수
-def init_s3_client(bucket_type='chatbot'):
-    """
-    S3 클라이언트를 초기화합니다.
-    
-    Args:
-        bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
-    
-    Returns:
-        boto3.client: 초기화된 S3 클라이언트
-    """
-    if bucket_type == 'test':
-        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-        region_name = os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-2')
-    else:
-        aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
-        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-southeast-2')
-    
-    logger.info(f"Initializing S3 client for bucket type: {bucket_type}")
-    
-    return boto3.client(
-        's3',
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=region_name
-    )
-
-# ---------------------------
-# 5.1 S3 클라이언트 설정
-# ---------------------------
-class S3Client:
-    def __init__(self, bucket_type='chatbot'):
-        """
-        S3 클라이언트 초기화
-        
-        Args:
-            bucket_type (str): 'chatbot' 또는 'test' 중 하나. 사용할 버킷을 지정
-        """
-        if bucket_type == 'test':
-            self.bucket_name = TEST_BUCKET
-            self.prefix = TEST_PREFIX
-        else:
-            self.bucket_name = CHATBOT_BUCKET
-            self.prefix = CHATBOT_PREFIX
-            
-        self.s3 = init_s3_client(bucket_type)
-        logger.info(f"S3Client initialized: bucket={self.bucket_name}, prefix={self.prefix}")
-
-        print(f"Initializing S3 client for bucket {self.bucket_name} in region {region_name}")
-        
-        # S3 클라이언트 초기화
-        self.s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name
+@app.post("/api/login")
+async def api_login(login_data: LoginRequest, response: Response):
+    """로그인 API 엔드포인트"""
+    try:
+        # 로그인 처리 로직
+        user = member_manager.authenticate_user(
+            login_data.username,
+            login_data.password
         )
-    
-    def list_files(self, prefix: str = ''):
-        """S3 버킷에서 파일 목록을 가져옵니다."""
-        try:
-            response = self.s3.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=prefix or self.prefix
+        
+        if user:
+            # 쿠키 설정
+            response.set_cookie(
+                key="user_id",
+                value=user.username,
+                httponly=True,
+                samesite="lax",
+                secure=True,
+                max_age=60 * 60 * 24 * 7  # 7일
             )
-            return [content['Key'] for content in response.get('Contents', [])]
-        except Exception as e:
-            logger.error(f"Error listing files in S3: {e}")
-            return []
-
-    def download_file(self, key: str, file_path: str):
-        """S3에서 파일을 다운로드합니다."""
-        try:
-            # S3에서 파일 다운로드
-            self.s3.download_file(self.bucket_name, key, file_path)
-            logger.info(f"파일 다운로드 성공: {key}")
-            return True
-        except botocore.exceptions.ClientError as e:
-            # S3 클라이언트 에러 처리
-            error_code = e.response['Error']['Code']
-            if error_code == '404':
-                logger.error(f"파일을 찾을 수 없습니다: {key}")
-            else:
-                logger.error(f"S3 클라이언트 에러: {error_code}")
-            return False
-        except Exception as e:
-            logger.error(f"Error downloading file: {str(e)}")
-            return False
-
-    def get_scenario(self, scenario_key: str) -> dict:
-        """특정 테스트 시나리오를 가져옵니다."""
-        try:
-            # 시나리오 파일 경로
-            if not scenario_key.endswith('/'):
-                scenario_key += '/'
-            scenario_file = f"{scenario_key}scenario.json"
-            
-            # S3에서 시나리오 파일 가져오기
-            response = self.s3.get_object(
-                Bucket=self.bucket_name,
-                Key=scenario_file
+            return {"message": "로그인 성공"}
+        else:
+            raise HTTPException(
+                status_code=401,
+                detail="로그인 실패: 사용자 이름 또는 비밀번호가 올바르지 않습니다."
             )
-            
-            # JSON 파싱하여 반환
-            scenario_data = json.loads(response['Body'].read().decode('utf-8'))
-            return scenario_data
-            
-        except botocore.exceptions.ClientError as e:
-            error_code = e.response['Error']['Code']
-            if error_code == 'NoSuchKey':
-                raise HTTPException(status_code=404, detail=f"시나리오를 찾을 수 없습니다: {scenario_key}")
-            else:
-                logger.error(f"S3 get object error: {e}")
-                raise HTTPException(status_code=500, detail=f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
-        except Exception as e:
-            logger.error(f"Error getting scenario {scenario_key}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error in api_login: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"서버에서 오류가 발생했습니다: {str(e)}"
+        )
 
-    def list_scenarios(self):
-        """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
-        try:
-            # 시나리오가 있는 디렉토리 목록 가져오기
-            prefix = f"{self.prefix}test_scenarios/"
-            logger.info(f"Listing scenarios with prefix: {prefix} in bucket: {self.bucket_name}")
-            
-            # S3 버킷 내용 나열
-            paginator = self.s3.get_paginator('list_objects_v2')
-            pages = paginator.paginate(
-                Bucket=self.bucket_name,
-                Prefix=prefix,
-                Delimiter='/'
+@app.post("/api/register")
+async def api_register(register_data: RegisterRequest):
+    """회원가입 API 엔드포인트"""
+    try:
+        # 회원가입 처리 로직
+        user = member_manager.register_user(
+            register_data.username,
+            register_data.password
+        )
+        
+        if user:
+            return {"message": "회원가입 성공"}
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="회원가입 실패: 이미 존재하는 사용자 이름입니다."
             )
-            
-            scenarios = []
-            
-            # 페이지별로 결과 처리
-            for page in pages:
-                # CommonPrefixes에서 디렉토리 목록 가져오기
-                if 'CommonPrefixes' in page:
-                    for obj in page['CommonPrefixes']:
-                        scenario_key = obj['Prefix'].rstrip('/')  # 마지막 슬래시 제거
-                        scenario_name = scenario_key.split('/')[-1]
-                        
-                        # 시나리오 파일이 있는지 확인
-                        try:
-                            # scenario.json 파일이 있는지 확인
-                            scenario_file = f"{scenario_key}/scenario.json"
-                            self.s3.head_object(
-                                Bucket=self.bucket_name,
-                                Key=scenario_file
-                            )
-                            
-                            # 시나리오 정보 수집
-                            scenario_info = {
-                                'key': scenario_key,
-                                'name': scenario_name,
-                                'last_modified': datetime.now(timezone.utc).isoformat()
-                            }
-                            
-                            # 디렉토리 메타데이터가 있으면 추가
-                            try:
-                                dir_obj = self.s3.head_object(
-                                    Bucket=self.bucket_name,
-                                    Key=f"{scenario_key}/"
-                                )
-                                if 'LastModified' in dir_obj:
-                                    scenario_info['last_modified'] = dir_obj['LastModified'].isoformat()
-                            except Exception as e:
-                                logger.warning(f"Could not get directory metadata for {scenario_key}: {str(e)}")
-                            
-                            scenarios.append(scenario_info)
-                            logger.info(f"Found valid scenario: {scenario_name} at {scenario_key}")
-                            
-                        except Exception as e:
-                            logger.warning(f"Skipping invalid scenario directory {scenario_key}: {str(e)}")
-                            continue
-            
-            logger.info(f"Found {len(scenarios)} valid scenarios in total")
-            return scenarios
-            
-        except Exception as e:
-            logger.error(f"Error listing test scenarios: {str(e)}", exc_info=True)
-            raise
-
-    def put_object(self, key: str, body: bytes, content_type: str = 'application/json'):
-        """S3에 객체를 업로드합니다."""
-        try:
+    except Exception as e:
+        logger.error(f"Error in api_register: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"서버에서 오류가 발생했습니다: {str(e)}"
+        )
             self.s3.put_object(
                 Bucket=self.bucket_name,
                 Key=key,
