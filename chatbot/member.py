@@ -22,16 +22,22 @@ class MongoDBManager:
     
     def _initialize(self):
         """MongoDB 연결 초기화"""
-        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+        # 호스트의 IP 주소를 사용하여 MongoDB에 연결
+        # Docker 컨테이너 내부에서 호스트의 MongoDB에 접근하기 위해 'host.docker.internal' 사용
+        # Linux에서는 --add-host=host.docker.internal:host-gateway 옵션이 필요할 수 있음
+        self.mongo_uri = os.getenv('MONGODB_URI', 'mongodb://host.docker.internal:27017/')
         logger.info(f"Connecting to MongoDB at {self.mongo_uri}")
         
         try:
             self.client = MongoClient(
                 self.mongo_uri,
-                serverSelectionTimeoutMS=5000  # 5초 타임아웃
+                serverSelectionTimeoutMS=5000,  # 5초 타임아웃
+                connectTimeoutMS=10000,         # 연결 타임아웃 10초
+                socketTimeoutMS=45000,          # 소켓 타임아웃 45초
+                connect=False                   # 지연 연결 사용
             )
             # 연결 테스트
-            self.client.server_info()  # 연결 확인
+            self.client.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
             
             self.db = self.client["member_information"]
@@ -43,7 +49,9 @@ class MongoDBManager:
             
         except Exception as e:
             logger.error(f"Failed to connect to MongoDB: {e}")
-            raise
+            logger.error("Please check if MongoDB is running and accessible")
+            # 애플리케이션을 계속 실행할 수 있도록 예외를 던지지 않음
+            # 대신 연결이 필요한 메서드에서 연결 상태를 확인하도록 함
     
     def close(self):
         """MongoDB 연결 종료"""
