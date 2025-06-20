@@ -124,7 +124,7 @@ class MemberManager:
             logger.error(f"회원가입 중 오류 발생: {e}")
             return False, f"회원가입 중 오류가 발생했습니다: {str(e)}"
 
-    def login(self, username: str, password: str) -> Tuple[bool, str, Optional[Dict]]:
+    def login(self, username: str, password: str) -> Tuple[bool, str]:
         """
         회원 로그인을 처리합니다.
         
@@ -133,29 +133,27 @@ class MemberManager:
             password: 비밀번호
             
         Returns:
-            Tuple[bool, str, Optional[Dict]]: (성공 여부, 메시지, 사용자 정보)
+            Tuple[bool, str]: (성공 여부, 메시지)
         """
         try:
-            member_key = self._get_member_key(username)
-            
-            if not self._s3_key_exists(member_key):
-                logger.warning(f"존재하지 않는 아이디로 로그인 시도: {username}")
-                return False, '아이디 또는 비밀번호가 일치하지 않습니다.', None
-                
-            member_data = self._load_json_from_s3(member_key)
-            if not member_data:
-                logger.error(f"회원 데이터 로드 실패: {username}")
-                return False, '로그인 처리 중 오류가 발생했습니다.', None
-                
-            if not member_data.get('is_active', True):
-                logger.warning(f"비활성화된 계정 로그인 시도: {username}")
-                return False, '사용할 수 없는 계정입니다.', None
-                
-            stored_password, salt = member_data['password'].rsplit(':', 1)
-            hashed_password = hashlib.pbkdf2_hmac(
-                'sha256',
-                password.encode('utf-8'),
-                salt.encode('utf-8'),
+            # 사용자 조회
+            user = self.get_user(username)
+            if not user:
+                return False, "사용자가 존재하지 않습니다."
+
+            # 비밀번호 검증
+            salt = user.get('salt')
+            if not salt:
+                return False, "비밀번호 검증에 실패했습니다."
+
+            hashed_password = self._hash_password(password, salt)[0]
+            if user['password'] != hashed_password:
+                return False, "비밀번호가 일치하지 않습니다."
+
+            # 로그인 성공
+            self.update_session(username)  # 세션 업데이트
+            return True, "로그인 성공"
+
                 100000
             ).hex()
             

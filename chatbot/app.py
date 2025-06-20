@@ -614,21 +614,18 @@ async def register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest, response: Response):
+async def api_login(login_data: LoginRequest):
+    """로그인 API 엔드포인트"""
     success, message = member_manager.login(login_data.username, login_data.password)
     if success:
-        response_data = {"message": "로그인 성공", "redirect": "/chat"}
-        response = JSONResponse(content=response_data)
-        response.set_cookie(
-            key="user_id",
-            value=login_data.username,
-            httponly=True,
-            max_age=3600,
-            samesite='lax',
-            secure=False
+        return JSONResponse(
+            content={"message": message},
+            status_code=status.HTTP_200_OK
         )
-        return response
-    return JSONResponse(content={"message": message}, status_code=401)
+    return JSONResponse(
+        content={"message": message},
+        status_code=status.HTTP_401_UNAUTHORIZED
+    )
 
 @app.post("/api/register")
 async def api_register(register_data: RegisterRequest):
