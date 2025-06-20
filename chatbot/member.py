@@ -160,16 +160,27 @@ class MemberManager:
             
         except Exception as e:
             logger.error(f"로그인 중 오류 발생: {str(e)}")
-            return False, '로그인 처리 중 오류가 발생했습니다.', None
+            return False, '로그인 처리 중 오류가 발생했습니다.'
             
     def get_user(self, username: str) -> Optional[Dict]:
         """사용자명으로 사용자 정보를 조회합니다."""
         try:
-            member_key = self._get_member_key(username)
-            return self._load_json_from_s3(member_key)
+            user = self.db.users.find_one({'username': username})
+            if user:
+                # 비밀번호 해시와 salt만 반환 (보안상의 이유)
+                return {
+                    'username': user['username'],
+                    'password': user['password'],
+                    'salt': user['salt']
+                }
+            return None
         except Exception as e:
             logger.error(f"사용자 정보 조회 중 오류: {str(e)}")
             return None
+
+    def _get_member_key(self, username: str) -> str:
+        """MongoDB에서 사용자 문서의 키를 생성합니다."""
+        return f"users/{username}"
 
     def check_member(self, username: str) -> bool:
         """

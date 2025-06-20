@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 
 import boto3
-from fastapi import FastAPI, Request, HTTPException, Response, Depends
+from fastapi import FastAPI, Request, Response, HTTPException, Form, status, Response, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -624,7 +624,7 @@ async def api_login(login_data: LoginRequest):
         )
     return JSONResponse(
         content={"message": message},
-        status_code=status.HTTP_401_UNAUTHORIZED
+        status_code=401
     )
 
 @app.post("/api/register")
