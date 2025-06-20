@@ -344,18 +344,20 @@ class S3Client:
             region_name=region_name
         )
     
-    def list_scenarios(self):
+    def list_files(self, prefix: str = ''):
+        """S3 버킷에서 파일 목록을 가져옵니다."""
         try:
             response = self.s3.list_objects_v2(
                 Bucket=self.bucket_name,
-                Prefix=self.prefix
+                Prefix=prefix or self.prefix
             )
             return [content['Key'] for content in response.get('Contents', [])]
         except Exception as e:
-            logger.error(f"Error listing scenarios in S3: {e}")
+            logger.error(f"Error listing files in S3: {e}")
             return []
 
     def download_file(self, key: str, file_path: str):
+        """S3에서 파일을 다운로드합니다."""
         try:
             # S3에서 파일 다운로드
             self.s3.download_file(self.bucket_name, key, file_path)
@@ -370,40 +372,68 @@ class S3Client:
                 logger.error(f"S3 클라이언트 에러: {error_code}")
             return False
         except Exception as e:
-            # 기타 예외 처리
-            logger.error(f"파일 다운로드 실패: {str(e)}")
+            logger.error(f"Error downloading file: {str(e)}")
             return False
 
-    def list_files(self, prefix: str = ''):
+    def get_scenario(self, scenario_key: str) -> dict:
+        """특정 테스트 시나리오를 가져옵니다."""
         try:
-            response = self.s3.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=prefix
-            )
-            return [content['Key'] for content in response.get('Contents', [])]
-        except Exception as e:
-            logger.error(f"Error listing files in S3: {e}")
-            return []
-
-    def get_object(self, key: str):
-        try:
+            # 시나리오 파일 경로
+            if not scenario_key.endswith('/'):
+                scenario_key += '/'
+            scenario_file = f"{scenario_key}scenario.json"
+            
+            # S3에서 시나리오 파일 가져오기
             response = self.s3.get_object(
                 Bucket=self.bucket_name,
-                Key=key
+                Key=scenario_file
             )
-            return response
+            
+            # JSON 파싱하여 반환
+            scenario_data = json.loads(response['Body'].read().decode('utf-8'))
+            return scenario_data
+            
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                logger.error(f"Object not found: {key}")
-                return None
+            error_code = e.response['Error']['Code']
+            if error_code == 'NoSuchKey':
+                raise HTTPException(status_code=404, detail=f"시나리오를 찾을 수 없습니다: {scenario_key}")
             else:
                 logger.error(f"S3 get object error: {e}")
-                raise
+                raise HTTPException(status_code=500, detail=f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
         except Exception as e:
-            logger.error(f"Error getting object: {str(e)}")
-            raise
+            logger.error(f"Error getting scenario {scenario_key}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}")
+
+    def list_scenarios(self):
+        """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
+        try:
+            # 시나리오가 있는 디렉토리 목록 가져오기
+            response = self.s3.list_objects_v2(
+                Bucket=self.bucket_name,
+                Prefix=f"{self.prefix}test_scenarios/"
+            )
+            
+            # 디렉토리 목록에서 시나리오 이름 추출
+            scenarios = []
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    # 디렉토리인 경우에만 추가
+                    if obj['Key'].endswith('/') and obj['Key'] != f"{self.prefix}test_scenarios/":
+                        scenario_name = obj['Key'].split('/')[-2]
+                        scenarios.append({
+                            'key': obj['Key'],
+                            'name': scenario_name,
+                            'last_modified': obj['LastModified'].isoformat()
+                        })
+            
+            return scenarios
+            
+        except Exception as e:
+            logger.error(f"Error listing test scenarios: {str(e)}")
+            return []
 
     def put_object(self, key: str, body: bytes, content_type: str = 'application/json'):
+        """S3에 객체를 업로드합니다."""
         try:
             self.s3.put_object(
                 Bucket=self.bucket_name,
@@ -420,140 +450,55 @@ class S3Client:
             logger.error(f"Error uploading object: {str(e)}")
             raise
 
-s3_client = S3Client()
-
-# ---------------------------
-# 5.2 테스트 결과 저장 경로
-# ---------------------------
-TEST_RESULTS_DIR = os.path.join(BASE_DIR, 'test_chat_logs')
-os.makedirs(TEST_RESULTS_DIR, exist_ok=True)
-
-def save_test_result(scenario_key: str, messages: list) -> str:
-    """테스트 결과를 파일로 저장하고 파일 경로를 반환합니다."""
-    # 파일명 생성 (중복 방지를 위해 타임스탬프 추가)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"{os.path.basename(scenario_key).replace('.json', '')}_{timestamp}.json"
-    filepath = os.path.join(TEST_RESULTS_DIR, filename)
-    
-    # 디렉토리 생성 (필요한 경우)
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    
-    # 파일 저장
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump({
-            'scenario_key': scenario_key,
-            'timestamp': datetime.now().isoformat(),
-            'messages': messages
-        }, f, ensure_ascii=False, indent=2)
-    
-    return filepath
-
-# ---------------------------
-# 6. 라우트
-# ---------------------------
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    return RedirectResponse(url="/login")
-
-@app.get("/chat")
-async def chat_page(request: Request):
-    user_id = request.cookies.get("user_id")
-    if not user_id:
-        return RedirectResponse(url="/login")
-    return templates.TemplateResponse("index.html", {"request": request, "categories": ["일상", "업무", "학습", "여행", "음식"]})
-
-@app.post("/chat")
-async def chat(chat_request: ChatRequest, request: Request):
-    try:
-        username = request.cookies.get('user_id')
-        if not username:
-            raise HTTPException(status_code=401, detail="Not authenticated")
-        user_message = chat_request.message.strip()
-        if not user_message:
-            raise HTTPException(status_code=400, detail="Message cannot be empty")
-        
-        # 테스트 모드일 때는 챗봇 응답을 생략하고 빈 문자열 반환
-        if chat_request.is_test:
-            if chat_request.action == 'test':
-                return JSONResponse(content={"response": "", "status": "success"})
-            else:
-                raise HTTPException(status_code=400, detail="Invalid action for test mode")
-        
-        chat_context = get_chat_context(username)
-        
-        print(f"Received message: {user_message}")  # 디버깅용 로그
-        
-        # 챗봇 응답 생성
-        response = chatbot.generate_response(
-            user_input=user_message,
-            username=username,
-            chat_history=chat_context
-        )
-        print(f"Generated response: {response}")  # 디버깅용 로그
-        
-        # 메시지 저장
-        save_chat_message(username, "assistant", response)
-        
-        return JSONResponse(content={"response": response, "status": "success"})
-    except Exception as e:
-        print(f"Error in chat endpoint: {str(e)}")  # 디버깅용 로그
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/login")
-async def login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
-
-@app.get("/test")
-async def test_page(request: Request):
-    return templates.TemplateResponse("test.html", {"request": request})
-
-# 테스트 관련 API 엔드포인트
 @app.get("/api/test/scenarios")
 async def get_test_scenarios():
     """S3 버킷에서 테스트 시나리오 목록을 가져옵니다."""
     try:
         # 테스트 시나리오는 test 버킷에서 가져옵니다.
-        test_s3_client = S3Client(bucket_type='test')
-        scenarios = test_s3_client.list_scenarios()
+        s3_client = S3Client(bucket_type='test')
+        scenarios = s3_client.list_scenarios()
+        
+        # 시나리오가 없는 경우 빈 배열 반환
+        if not scenarios:
+            logger.warning("No test scenarios found in S3 bucket")
+            return {"scenarios": []}
+            
+        # 시나리오 키에서 불필요한 접두어 제거
+        for scenario in scenarios:
+            if scenario['key'].startswith(s3_client.prefix):
+                scenario['key'] = scenario['key'][len(s3_client.prefix):]
+                
         return {"scenarios": scenarios}
+        
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Error listing test scenarios: {e}")
+        logger.error(f"Error listing test scenarios: {str(e)}")
         raise HTTPException(
             status_code=500, 
-            detail=f"테스트 시나리오를 불러오는 중 오류가 발생했습니다: {str(e)}"
+            detail=f"테스트 시나리오 목록을 불러오는 중 오류가 발생했습니다: {str(e)}"
         )
 
-@app.get("/api/test/scenario/{scenario_key:path}")
+@app.get("/api/test/scenario/{scenario_key}")
 async def get_scenario(scenario_key: str):
     """특정 테스트 시나리오를 가져옵니다."""
     try:
-        # 테스트 시나리오는 test 버킷에서 가져옵니다.
-        test_s3_client = S3Client(bucket_type='test')
-        messages = test_s3_client.get_scenario(scenario_key)
+        # S3 클라이언트 초기화 (테스트 버킷 사용)
+        s3_client = S3Client(bucket_type='test')
         
-        if not messages:
-            raise HTTPException(status_code=404, detail="시나리오를 찾을 수 없습니다.")
+        # 시나리오 키가 완전한 경로가 아닌 경우 경로 추가
+        if not scenario_key.startswith(s3_client.prefix):
+            scenario_key = f"{s3_client.prefix}test_scenarios/{scenario_key}/"
         
-        # 각 메시지의 필수 필드 확인 및 기본값 설정
-        for msg in messages:
-            msg['content'] = msg.get('content', '')
-            msg['emotion'] = msg.get('emotion', '중립')
+        # 시나리오 가져오기
+        scenario_data = s3_client.get_scenario(scenario_key)
+        return scenario_data
         
-        # 시나리오 데이터 구성
-        scenario = {
-            'key': scenario_key,
-            'messages': messages
-        }
-        
-        return {"scenario": scenario}
-    except HTTPException:
-        raise
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Error getting test scenario {scenario_key}: {e}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"시나리오를 처리하는 중 오류가 발생했습니다: {str(e)}"
-        )
+        logger.error(f"Error getting test scenario {scenario_key}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
 
 @app.post("/api/test/save")
 async def save_test_result_endpoint(data: dict):
