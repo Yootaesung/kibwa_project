@@ -4,85 +4,54 @@ import os
 import secrets
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
-
-import boto3
-from botocore.exceptions import ClientError
-
+from typing import Dict, Optional, Tuple, Any
+from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError, OperationFailure
+from bson import ObjectId
 from config.settings import settings
 from config.logger import logger
 
-class S3MemberManager:
-    def __init__(self, bucket_name: str = 'kibwa-05', prefix: str = 'project/'):
-        self.bucket_name = bucket_name
-        self.prefix = prefix
-        self.member_prefix = f"{prefix}member_information/"
+class MongoDBManager:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(MongoDBManager, cls).__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+    
+    def _initialize(self):
+        """MongoDB 연결 초기화"""
+        self.mongo_uri = "mongodb://3.107.174.223:27017/"
+        self.client = MongoClient(self.mongo_uri)
+        self.db = self.client["member_information"]
+        self.users = self.db["users"]
         
-        # 환경 변수 확인
-        aws_access_key_id = os.getenv('KIBWA05_ACCESS_KEY_ID')
-        aws_secret_access_key = os.getenv('KIBWA05_SECRET_ACCESS_KEY')
-        region_name = os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
-        
-        if not all([aws_access_key_id, aws_secret_access_key]):
-            raise ValueError("S3 자격 증명 정보가 설정되지 않았습니다. KIBWA05_ACCESS_KEY_ID와 KIBWA05_SECRET_ACCESS_KEY를 확인하세요.")
+        # 인덱스 생성 (username은 고유해야 함)
+        self.users.create_index("username", unique=True)
+    
+    def close(self):
+        """MongoDB 연결 종료"""
+        if hasattr(self, 'client'):
+            self.client.close()
             
-        logger.info(f"Initializing S3MemberManager with bucket: {self.bucket_name}, region: {region_name}")
+# 전역 MongoDB 매니저 인스턴스 생성
+db_manager = MongoDBManager()
+
+class MemberManager:
+    def __init__(self):
+        self.db = db_manager
         
-        self.s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name
-        )
-
-    def _get_member_key(self, username: str) -> str:
-        """회원 정보 파일의 S3 키를 반환합니다."""
-        return f"{self.member_prefix}{username}.json"
-
-    def _hash_password(self, password: str) -> str:
+    def _hash_password(self, password: str) -> Tuple[str, str]:
         """비밀번호를 해시화합니다."""
         salt = secrets.token_hex(16)
-        return hashlib.pbkdf2_hmac(
+        hashed = hashlib.pbkdf2_hmac(
             'sha256',
             password.encode('utf-8'),
             salt.encode('utf-8'),
             100000
-        ).hex() + f":{salt}"
-
-    def _s3_key_exists(self, key: str) -> bool:
-        """S3에 키가 존재하는지 확인합니다."""
-        try:
-            self.s3.head_object(Bucket=self.bucket_name, Key=key)
-            return True
-        except ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                return False
-            logger.error(f"S3 키 확인 중 오류: {e}")
-            raise
-
-    def _load_json_from_s3(self, key: str) -> Optional[dict]:
-        """S3에서 JSON 파일을 로드합니다."""
-        try:
-            response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
-            return json.loads(response['Body'].read().decode('utf-8'))
-        except ClientError as e:
-            if e.response['Error']['Code'] == 'NoSuchKey':
-                return None
-            logger.error(f"S3에서 JSON 로드 중 오류: {e}")
-            raise
-
-    def _save_json_to_s3(self, key: str, data: dict):
-        """JSON 데이터를 S3에 저장합니다."""
-        try:
-            self.s3.put_object(
-                Bucket=self.bucket_name,
-                Key=key,
-                Body=json.dumps(data, ensure_ascii=False, indent=2).encode('utf-8'),
-                ContentType='application/json'
-            )
-        except Exception as e:
-            logger.error(f"S3에 JSON 저장 중 오류: {e}")
-            raise
+        ).hex()
+        return hashed, salt
 
     def register(self, username: str, password: str) -> Tuple[bool, str]:
         """
@@ -96,28 +65,28 @@ class S3MemberManager:
             Tuple[bool, str]: (성공 여부, 메시지)
         """
         try:
-            member_key = self._get_member_key(username)
+            # 비밀번호 해시화
+            hashed_password, salt = self._hash_password(password)
             
-            if self._s3_key_exists(member_key):
-                logger.warning(f"이미 존재하는 아이디로 가입 시도: {username}")
-                return False, '이미 존재하는 아이디입니다.'
-                
-            hashed_password = self._hash_password(password)
-            member_data = {
+            # 회원 정보 생성
+            user_data = {
                 'username': username,
                 'password': hashed_password,
-                'created_at': datetime.utcnow().isoformat(),
-                'last_login': None,
-                'is_active': True
+                'salt': salt,
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow()
             }
             
-            self._save_json_to_s3(member_key, member_data)
-            logger.info(f"새로운 회원 가입 성공: {username}")
-            return True, '회원가입이 완료되었습니다.'
+            # MongoDB에 저장
+            self.db.users.insert_one(user_data)
             
+            return True, "회원가입이 완료되었습니다."
+            
+        except DuplicateKeyError:
+            return False, "이미 존재하는 사용자명입니다."
         except Exception as e:
-            logger.error(f"회원가입 중 오류 발생: {str(e)}")
-            return False, '회원가입 중 오류가 발생했습니다.'
+            logger.error(f"회원가입 중 오류 발생: {e}")
+            return False, f"회원가입 중 오류가 발생했습니다: {str(e)}"
 
     def login(self, username: str, password: str) -> Tuple[bool, str, Optional[Dict]]:
         """

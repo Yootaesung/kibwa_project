@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
     
+    # MongoDB
+    MONGODB_URL: str = "mongodb://3.107.174.223:27017/"
+    MONGODB_DB_NAME: str = "kibwa_chatbot"
+    MONGODB_COLLECTION: str = "users"
+    
     # AWS
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None

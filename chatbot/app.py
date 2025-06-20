@@ -123,10 +123,10 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # ---------------------------
 # 3. S3 멤버 관리 클래스
 # ---------------------------
-from chatbot.member import MemberManager as S3MemberManager
+from chatbot.member import MemberManager
 
 # S3MemberManager 인스턴스 생성
-member_manager = S3MemberManager()
+member_manager = MemberManager()
 
 def get_user_chat_log_path(username: str):
     """사용자 채팅 로그의 S3 경로 반환"""
