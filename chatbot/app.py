@@ -288,6 +288,15 @@ class SimpleChatbot:
 chatbot = SimpleChatbot()
 
 # ---------------------------
+# 6. 라우트
+# ---------------------------
+
+@app.get("/")
+async def root():
+    """루트 경로를 /login으로 리다이렉트합니다."""
+    return RedirectResponse(url="/login")
+
+# ---------------------------
 # 5. 모델
 # ---------------------------
 class ChatRequest(BaseModel):
