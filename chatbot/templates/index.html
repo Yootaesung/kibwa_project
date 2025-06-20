@@ -452,13 +452,22 @@
 
         function addMessage(text, isUser, messageId = null, isCenter = false) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'} ${isCenter ? 'center-message' : ''}`;
-            if (messageId) {
-                messageDiv.id = messageId;
-            }
-            messageDiv.textContent = text;
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            if (isCenter) messageDiv.classList.add('center-message');
+            if (messageId) messageDiv.id = messageId;
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = text;
+            
+            messageDiv.appendChild(messageContent);
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // 메시지가 추가될 때마다 스크롤을 아래로 이동
+            setTimeout(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 100);
         }
 
         // 감정 분석 함수
@@ -578,10 +587,16 @@
             
             currentEmotion = dominantEmotion;
             
-            // UI 업데이트: 항상 현재 감정 상태 표시
-            currentEmotionElement.textContent = `${emotionIcons[dominantEmotion]} ${dominantEmotion}`;
-            currentEmotionElement.style.backgroundColor = `${emotionColors[dominantEmotion]}20`; // 20% 투명도
-            currentEmotionElement.style.color = emotionColors[dominantEmotion];
+            // UI 업데이트: showEmotion에 따라 감정 표시 여부 결정
+            if (showEmotion) {
+                currentEmotionElement.textContent = `${emotionIcons[dominantEmotion]} ${dominantEmotion}`;
+                currentEmotionElement.style.backgroundColor = `${emotionColors[dominantEmotion]}20`; // 20% 투명도
+                currentEmotionElement.style.color = emotionColors[dominantEmotion];
+            } else {
+                currentEmotionElement.textContent = '...';
+                currentEmotionElement.style.backgroundColor = '#f8f9fa';
+                currentEmotionElement.style.color = '#4a6cfa';
+            }
             
             // 감정 점수 바 업데이트 (주석 처리됨)
             // updateEmotionBars();
@@ -642,76 +657,86 @@
 
             const filteredMessage = filterProfanity(originalMessage);
             const isFiltered = originalMessage !== filteredMessage;
-
             const messageId = 'msg-' + Date.now();
+            
+            // 메시지 전송 중에는 감정을 '...'으로 표시
+            updateEmotionScores({}, false);
+            
+            // '...'으로 메시지 추가
             addMessage('...', true, messageId);
             userInput.value = '';
             
             // 메시지 전송 후 입력창에 포커스
             userInput.focus();
-
-            $.ajax({
-                url: '/chat/',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    message: filteredMessage,
-                    action: 'send',
-                    is_filtered: true
-                }),
-                success: function(response) {
-                    const messageElement = document.getElementById(messageId);
-                    if (messageElement) {
-                        if (isFiltered) {
-                            messageElement.textContent = filteredMessage;
-                            messageElement.title = '필터링된 메시지';
-                            messageElement.classList.add('filtered-message');
-                        } else {
-                            messageElement.textContent = originalMessage;
-                        }
-                        
-                        // 메시지 표시 완료 시 감정 표시 활성화
-                        const emotionScores = analyzeEmotion(originalMessage);
-                        updateEmotionScores(emotionScores, true);
-                    }
-
-                    if (response && response.response) {
-                        const loadingId = 'loading-' + Date.now();
-                        addMessage('...', false, loadingId);
-                        
-                        // Remove loading message and add actual response
-                        setTimeout(() => {
-                            const loadingElement = document.getElementById(loadingId);
-                            if (loadingElement) {
-                                loadingElement.remove();
-                            }
-                            addMessage(response.response, false);
-                            
-                            // 응답 메시지 표시 시 감정 상태 유지
-                        }, 500);
+            
+            // 잠시 후 메시지 내용과 감정을 업데이트 (로딩 효과를 위해)
+            setTimeout(() => {
+                const messageElement = document.getElementById(messageId);
+                if (messageElement) {
+                    if (isFiltered) {
+                        messageElement.textContent = filteredMessage;
+                        messageElement.title = '필터링된 메시지';
+                        messageElement.classList.add('filtered-message');
                     } else {
-                        console.error('Invalid response format:', response);
-                        addMessage('응답을 처리하는 중 오류가 발생했습니다.', false);
+                        messageElement.textContent = originalMessage;
                     }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error:', status, error);
-                    console.error('Response:', xhr.responseText);
-                    const messageElement = document.getElementById(messageId);
-                    if (messageElement) {
-                        messageElement.textContent = '오류가 발생했습니다.';
-                    }
-                    let errorMsg = '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.';
-                    try {
-                        const errorResponse = JSON.parse(xhr.responseText);
-                        if (errorResponse.details) {
-                            errorMsg += '\n' + errorResponse.details;
+                    
+                    // 메시지 표시 완료 시 감정 분석 및 표시
+                    const emotionScores = analyzeEmotion(originalMessage);
+                    updateEmotionScores(emotionScores, true);
+                    
+                    // 채팅 메시지 전송
+                    $.ajax({
+                        url: '/chat/',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            message: filteredMessage,
+                            action: 'send',
+                            is_filtered: isFiltered
+                        }),
+                        success: function(response) {
+                            if (response && response.response) {
+                                const botMessageId = 'bot-msg-' + Date.now();
+                                // 봇 응답 로딩 중에는 '...' 표시
+                                addMessage('...', false, botMessageId);
+                                
+                                // 일정 시간 후 실제 응답으로 대체 (로딩 효과)
+                                setTimeout(() => {
+                                    const botMessageElement = document.getElementById(botMessageId);
+                                    if (botMessageElement) {
+                                        botMessageElement.textContent = response.response;
+                                        // 봇 응답에 대한 감정 분석 (선택사항)
+                                        // const botEmotionScores = analyzeEmotion(response.response);
+                                        // updateEmotionScores(botEmotionScores, true);
+                                    }
+                                }, 500);
+                            } else {
+                                console.error('Invalid response format:', response);
+                                addMessage('응답을 처리하는 중 오류가 발생했습니다.', false);
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error:', status, error);
+                            console.error('Response:', xhr.responseText);
+                            const messageElement = document.getElementById(messageId);
+                            if (messageElement) {
+                                messageElement.textContent = '오류가 발생했습니다.';
+                            }
+                            let errorMsg = '죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.';
+                            try {
+                                const errorResponse = JSON.parse(xhr.responseText);
+                                if (errorResponse.details) {
+                                    errorMsg += '\n' + errorResponse.details;
+                                }
+                            } catch (e) {
+                                console.error('Error parsing error response:', e);
+                            }
+                            addMessage(errorMsg, false);
                         }
-                    } catch (e) {
-                        console.error('Error parsing error response:', e);
-                    }
-                    addMessage(errorMsg, false);
-                }
+                    }); // ajax 끝
+                } // if (messageElement) 끝
+            }, 300); // setTimeout 끝
             });
             
             // 감정 분석 수행
