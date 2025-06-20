@@ -299,9 +299,6 @@ async def root():
 @app.get("/login")
 async def login_page(request: Request):
     """로그인 페이지를 반환합니다."""
-    # 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
-    if request.cookies.get("user_id"):
-        return RedirectResponse(url="/chat")
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/chat")
