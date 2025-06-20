@@ -153,16 +153,6 @@ class MemberManager:
             # 로그인 성공
             self.update_session(username)  # 세션 업데이트
             return True, "로그인 성공"
-
-                100000
-            ).hex()
-            
-            if hashed_password != stored_password:
-                logger.warning(f"잘못된 비밀번호로 로그인 시도: {username}")
-                return False, '아이디 또는 비밀번호가 일치하지 않습니다.', None
-                
-            # 마지막 로그인 시간 업데이트
-            member_data['last_login'] = datetime.utcnow().isoformat()
             self._save_json_to_s3(member_key, member_data)
                 
             logger.info(f"로그인 성공: {username}")
