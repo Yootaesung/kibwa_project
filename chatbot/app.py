@@ -129,9 +129,13 @@ def ensure_s3_paths():
         for path in required_paths:
             try:
                 s3_client.head_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
-            except s3_client.exceptions.NoSuchKey:
-                # 경로가 없으면 빈 디렉토리 생성
-                s3_client.put_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == '404':
+                    # 경로가 없으면 빈 디렉토리 생성
+                    s3_client.put_object(Bucket=S3_BUCKET, Key=f"{S3_PREFIX}{path}")
+                else:
+                    logger.error(f"S3 객체 접근 오류: {e}")
+                    raise
     except Exception as e:
         logger.error(f"S3 버킷 접근 오류: {e}")
         raise
@@ -164,8 +168,12 @@ def load_chat_history(username: str) -> List[Dict[str, Any]]:
     try:
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=log_key)
         return json.loads(response['Body'].read().decode('utf-8'))
-    except s3_client.exceptions.NoSuchKey:
-        return []
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            return []
+        else:
+            logger.error(f"S3 객체 접근 오류: {e}")
+            return []
     except Exception as e:
         logger.error(f"채팅 기록 로드 중 오류: {e}")
         return []
@@ -599,7 +607,7 @@ async def save_chat_logs(data: dict):
                 Key=log_key
             )
             existing_data = json.loads(existing_obj['Body'].read().decode('utf-8'))
-        except test_s3_client.s3.exceptions.NoSuchKey:
+        except botocore.exceptions.ClientError as e:
             # 파일이 존재하지 않는 경우 빈 리스트 사용
             pass
         except Exception as e:
