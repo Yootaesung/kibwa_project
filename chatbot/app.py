@@ -201,7 +201,17 @@ def save_chat_message(username: str, role: str, content: str):
 # get_chat_context function has been removed as it was redundant with load_chat_history
 
 # ---------------------------
-# 4. 챗봇 클래스
+# 4. Pydantic 모델
+# ---------------------------
+class ChatRequest(BaseModel):
+    message: str
+    action: str
+    is_filtered: bool = False
+    is_test: bool = False
+    emotion: str = "기쁨"  # 기본값으로 '기쁨' 설정
+
+# ---------------------------
+# 5. 챗봇 클래스
 # ---------------------------
 class SimpleChatbot:
     def __init__(self):
@@ -345,12 +355,6 @@ async def register_page(request: Request):
 # ---------------------------
 # 5. 모델
 # ---------------------------
-class ChatRequest(BaseModel):
-    message: str
-    action: str
-    is_filtered: bool = False
-    is_test: bool = False
-    emotion: str = "기쁨"  # 기본값으로 '기쁨' 설정
 
 class LoginRequest(BaseModel):
     username: str
