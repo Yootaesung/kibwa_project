@@ -809,9 +809,9 @@
                 emotionScores[key] = 0;
             });
             emotionScores['중립'] = 1;
-            updateEmotionBars();
             
-            // 현재 감정 초기화
+            // 감정 상태 초기화
+            updateEmotionScores({}, false);
             currentEmotionElement.textContent = '-';
             currentEmotionElement.style.backgroundColor = '';
             currentEmotionElement.style.color = '';
