@@ -79,7 +79,7 @@
 <body>
     <div class="login-container">
         <h2 style="text-align: center; margin-bottom: 20px;">로그인</h2>
-        <form id="login-form" class="login-form" onsubmit="handleLogin(event)">
+        <form id="login-form" class="login-form">
             <div class="form-group">
                 <label for="username">사용자 이름</label>
                 <input type="text" id="username" name="username" required>
@@ -91,7 +91,7 @@
                 <div id="password-error" class="error-message"></div>
             </div>
             <div class="form-group">
-                <button type="submit" class="btn-login">로그인</button>
+                <button type="button" id="login-button" class="btn-login">로그인</button>
             </div>
         </form>
         <div class="action-links">
@@ -109,6 +109,17 @@
             return window.location.origin;
         }
 
+        function showError(field, message) {
+            const errorElement = document.getElementById(`${field}-error`);
+            if (errorElement) {
+                errorElement.textContent = message;
+            }
+        }
+
+        function clearErrors() {
+            document.querySelectorAll('.error-message').forEach(el => el.textContent = '');
+        }
+
         async function handleLogin(e, isTest = false) {
             e.preventDefault();
             
@@ -116,8 +127,17 @@
             const password = document.getElementById('password').value;
             
             // Clear previous errors
-            document.getElementById('username-error').textContent = '';
-            document.getElementById('password-error').textContent = '';
+            clearErrors();
+            
+            // 간단한 유효성 검사
+            if (!username) {
+                showError('username', '사용자 이름을 입력해주세요.');
+                return;
+            }
+            if (!password) {
+                showError('password', '비밀번호를 입력해주세요.');
+                return;
+            }
             
             try {
                 const endpoint = isTest ? '/api/test/login' : '/api/login';
@@ -125,6 +145,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'  // AJAX 요청임을 명시
                     },
                     credentials: 'include',
                     body: JSON.stringify({
@@ -134,46 +155,56 @@
                     })
                 });
 
-                if (response.redirected) {
-                    // 서버에서 리다이렉트 응답을 보낸 경우
-                    window.location.href = response.url;
-                    return;
-                }
-
                 const data = await response.json();
                 
-                if (response.ok && data.redirect_url) {
-                    // JSON 응답에 리다이렉트 URL이 있는 경우
+                if (response.ok && data.success) {
+                    // 로그인 성공 시 리다이렉트
                     window.location.href = data.redirect_url;
-                    return;
-                }
-
-                // 에러 메시지 표시
-                if (data.detail && data.detail.includes('존재하지')) {
-                    document.getElementById('username-error').textContent = data.detail;
-                } else if (data.detail) {
-                    document.getElementById('password-error').textContent = data.detail;
                 } else {
-                    document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                    // 에러 메시지 표시
+                    if (data.detail) {
+                        if (data.detail.includes('존재하지')) {
+                            showError('username', data.detail);
+                        } else {
+                            showError('password', data.detail);
+                        }
+                    } else {
+                        showError('password', '로그인에 실패했습니다. 다시 시도해주세요.');
+                    }
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                document.getElementById('password-error').textContent = '로그인 중 오류가 발생했습니다.';
+                showError('password', '로그인 처리 중 오류가 발생했습니다.');
             }
         }
         
         // 테스트 로그인 핸들러
         function handleTestLogin(e) {
-            e.preventDefault();
             handleLogin(e, true);
         }
         
-        // 테스트 링크에 이벤트 리스너 추가
+        // 페이지 로드 시 이벤트 리스너 등록
         document.addEventListener('DOMContentLoaded', function() {
+            // 테스트 로그인 링크 클릭 이벤트
             const testLink = document.getElementById('test-login-link');
             if (testLink) {
                 testLink.addEventListener('click', handleTestLogin);
             }
+            
+            // 로그인 버튼 클릭 이벤트
+            const loginButton = document.getElementById('login-button');
+            if (loginButton) {
+                loginButton.addEventListener('click', function(e) {
+                    handleLogin(e, false);
+                });
+            }
+            
+            // 엔터 키로도 로그인 가능하도록 설정
+            document.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleLogin(e, false);
+                }
+            });
         });
     </script>
 </body>
