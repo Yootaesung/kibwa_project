@@ -18,6 +18,42 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 
+# OpenAI 클라이언트 초기화
+openai_client = OpenAI(
+    api_key=os.getenv('OPENAI_API_KEY')
+)
+
+# 챗봇 인스턴스 초기화
+class ChatBot:
+    def __init__(self):
+        self.client = openai_client
+
+    async def generate_response(self, message: str, username: str, chat_history: list):
+        """채팅 응답을 생성합니다."""
+        try:
+            # 채팅 히스토리에 새로운 메시지 추가
+            messages = [
+                {"role": "system", "content": "당신은 친절한 챗봇입니다."}
+            ] + chat_history + [
+                {"role": "user", "content": message}
+            ]
+
+            # OpenAI API 호출
+            response = await self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages
+            )
+
+            # 응답 처리
+            return response.choices[0].message.content
+
+        except Exception as e:
+            logger.error(f"OpenAI API 호출 실패: {str(e)}")
+            raise Exception("채팅 처리 중 오류가 발생했습니다.")
+
+# 챗봇 인스턴스 생성
+chatbot = ChatBot()
+
 # ---------------------------
 # 1. 환경설정 및 유틸리티
 # ---------------------------
@@ -437,23 +473,19 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
         # 실제 채팅 처리 로직
         chat_history = []
         
-        # OpenAI API 호출
-        response = await openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "user", "content": chat_request.message}
-            ]
+        # 챗봇 응답 생성
+        response = await chatbot.generate_response(
+            chat_request.message,
+            user_id,
+            chat_history
         )
-        
-        # 응답 처리
-        chat_response = response.choices[0].message.content
         
         # 채팅 기록 저장
         save_chat_message(user_id, "user", chat_request.message)
-        save_chat_message(user_id, "assistant", chat_response)
+        save_chat_message(user_id, "assistant", response)
         
         return {
-            "response": chat_response,
+            "response": response,
             "emotion": "중립"
         }
         
