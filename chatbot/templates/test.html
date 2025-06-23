@@ -490,6 +490,47 @@
             transition: max-height 0.3s ease-in-out;
             padding: 0 10px;
         }
+
+        .scenario-list {
+            margin: 15px 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .scenario-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .scenario-item:hover {
+            background: #e9ecef;
+        }
+
+        .scenario-item .scenario-name {
+            font-weight: 500;
+            margin-right: 10px;
+        }
+
+        .scenario-item .select-btn {
+            background: #4a6cfa;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .scenario-item .select-btn:hover {
+            background: #3a5ce0;
+        }
         
         .emotion-container.collapsed {
             max-height: 0;
@@ -512,8 +553,10 @@
                 <h2>테스트할 시나리오 선택</h2>
                 <select id="scenario-select">
                     <option value="">시나리오를 선택하세요...</option>
-                    <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
                 </select>
+                <ul id="scenario-list" class="scenario-list">
+                    <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
+                </ul>
                 <div style="margin-top: 15px;">
                     <button id="test-control" class="btn" disabled>테스트 시작</button>
                 </div>
