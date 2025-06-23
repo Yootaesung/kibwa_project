@@ -278,7 +278,7 @@ member_manager = MemberManager()
 
 def get_user_chat_log_path(username: str):
     """사용자 채팅 로그의 S3 경로 반환"""
-    return f"{S3_PREFIX}chat_logs/{username}_chat_log.json"
+    return f"{CHATBOT_PREFIX}chat_logs/{username}_chat_log.json"
 
 def load_chat_history(username: str) -> List[Dict[str, Any]]:
     """S3에서 채팅 기록 로드"""
