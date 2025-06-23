@@ -125,16 +125,15 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
+                    credentials: 'include',
                     body: JSON.stringify({
                         username: username,
                         password: password
-                    }),
-                    credentials: 'include'
+                    })
                 });
 
-                const data = await response.json();
-
                 if (response.ok) {
+                    const data = await response.json();
                     // 서버 응답에 따라 리다이렉트 처리
                     if (data.redirect_url) {
                         window.location.href = data.redirect_url;
@@ -144,10 +143,11 @@
                     }
                 } else {
                     // 에러 메시지 표시
-                    if (data.detail && data.detail.includes('존재하지')) {
-                        document.getElementById('username-error').textContent = data.detail;
-                    } else if (data.detail) {
-                        document.getElementById('password-error').textContent = data.detail;
+                    const errorData = await response.json();
+                    if (errorData.detail && errorData.detail.includes('존재하지')) {
+                        document.getElementById('username-error').textContent = errorData.detail;
+                    } else if (errorData.detail) {
+                        document.getElementById('password-error').textContent = errorData.detail;
                     } else {
                         document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
                     }

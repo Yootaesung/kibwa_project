@@ -555,6 +555,12 @@
     </div>
 
     <script>
+        // 로그인 버튼 클릭 이벤트 처리
+        document.querySelector('.home-btn').addEventListener('click', async function(e) {
+            e.preventDefault();
+            window.location.href = '/login';
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             // DOM 요소 가져오기
             const scenarioSelect = document.getElementById('scenario-select');

@@ -416,21 +416,27 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
             )
             
             # 클라이언트에서 리다이렉트 처리하도록 JSON 응답
-            return {
-                "success": True,
-                "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
-            }
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
+                },
+                status_code=200
+            )
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
                 status_code=401,
                 detail=message
             )
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error in api_login: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="서버 오류가 발생했습니다.")
+        raise HTTPException(
+            status_code=500,
+            detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+        )
     except HTTPException:
         raise
     except Exception as e:
