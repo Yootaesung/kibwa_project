@@ -415,7 +415,12 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 클라이언트에서 리다이렉트 처리하도록 JSON 응답
+            # 리다이렉트 처리
+            if request.url.path == "/api/login":
+                return RedirectResponse(url="/chat", status_code=status.HTTP_302_FOUND)
+            elif request.url.path == "/api/test/login":
+                return RedirectResponse(url="/test", status_code=status.HTTP_302_FOUND)
+            
             return JSONResponse(
                 content={
                     "success": True,
