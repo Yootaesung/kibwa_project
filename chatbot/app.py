@@ -123,6 +123,72 @@ chatbot_s3_client = boto3.client(
     region_name=os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
 )
 
+class S3Client:
+    def __init__(self, bucket_type='chatbot'):
+        """
+        S3 클라이언트 초기화
+        :param bucket_type: 'test' 또는 'chatbot' 중 하나
+        """
+        if bucket_type == 'test':
+            self.bucket = TEST_BUCKET
+            self.prefix = TEST_PREFIX
+            self.client = test_s3_client
+        else:  # 'chatbot'
+            self.bucket = CHATBOT_BUCKET
+            self.prefix = CHATBOT_PREFIX
+            self.client = chatbot_s3_client
+    
+    def list_objects(self, prefix=''):
+        """S3 버킷에서 객체 목록 조회"""
+        try:
+            response = self.client.list_objects_v2(
+                Bucket=self.bucket,
+                Prefix=f"{self.prefix}{prefix}",
+                Delimiter='/'
+            )
+            return response.get('Contents', [])
+        except Exception as e:
+            logger.error(f"S3 list_objects_v2 error: {str(e)}")
+            raise Exception(f"S3 작업 중 오류가 발생했습니다: {str(e)}")
+    
+    def get_object(self, key):
+        """S3에서 객체 내용 가져오기"""
+        try:
+            response = self.client.get_object(
+                Bucket=self.bucket,
+                Key=key
+            )
+            return response['Body'].read().decode('utf-8')
+        except Exception as e:
+            logger.error(f"S3 get_object error: {str(e)}")
+            raise Exception(f"S3에서 파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
+    
+    def list_scenarios(self):
+        """테스트 시나리오 목록 조회"""
+        try:
+            # 시나리오가 있는 디렉토리 목록 가져오기
+            response = self.client.list_objects_v2(
+                Bucket=self.bucket,
+                Prefix=f"{self.prefix}scenarios/",
+                Delimiter='/'
+            )
+            
+            # 시나리오 디렉토리 목록 추출
+            scenarios = []
+            if 'CommonPrefixes' in response:
+                for folder in response['CommonPrefixes']:
+                    folder_name = folder['Prefix'].split('/')[-2]  # 마지막 디렉토리 이름 추출
+                    if folder_name:  # 빈 문자열이 아닌 경우에만 추가
+                        scenarios.append({
+                            'key': folder_name,
+                            'name': folder_name.replace('_', ' ').title()
+                        })
+            
+            return scenarios
+        except Exception as e:
+            logger.error(f"Error listing scenarios: {str(e)}")
+            raise Exception(f"시나리오 목록을 가져오는 중 오류가 발생했습니다: {str(e)}")
+
 def ensure_s3_paths():
     """필요한 S3 경로가 존재하는지 확인하고 없으면 생성"""
     required_paths = [
