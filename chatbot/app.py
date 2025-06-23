@@ -385,51 +385,6 @@ class SimpleChatbot:
             logger.error(f"감정 키워드 로드 실패: {str(e)}")
             return {}
 
-    def generate_response(self, user_input: str, username: str = None, chat_history: list = None) -> str:
-        try:
-            if chat_history is None:
-                chat_history = []
-            chat_history.append({"role": "user", "content": user_input})
-            messages = [{"role": "system", "content": self.system_prompt}]
-            messages.extend(chat_history)
-            total_tokens = sum(len(msg["content"].split()) for msg in messages)
-            while total_tokens > 3000 and len(messages) > 1:
-                messages.pop(1)
-                total_tokens = sum(len(msg["content"].split()) for msg in messages)
-            response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=messages,
-                max_tokens=500,
-                temperature=0.7
-            )
-            bot_response = response.choices[0].message.content
-            return bot_response
-        except Exception as e:
-            logger.error(f"Error generating response: {str(e)}")
-
-    def calculate_emotion_score(self, message: str, emotion_keywords: dict) -> dict:
-        """메시지에서 감정 점수를 계산합니다."""
-        try:
-            emotion_scores = {}
-            
-            # 각 감정별로 키워드 매칭
-            for emotion, keywords in emotion_keywords.items():
-                score = 0
-                for keyword in keywords:
-                    if keyword.lower() in message.lower():
-                        score += 1
-                emotion_scores[emotion] = score
-            
-            return emotion_scores
-        except Exception as e:
-            logger.error(f"감정 점수 계산 실패: {str(e)}")
-            return {}
-            return "죄송합니다. 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-
-chatbot = SimpleChatbot()
-
-# ---------------------------
-# 6. 라우트
 # ---------------------------
 
 @app.get("/")
@@ -498,6 +453,10 @@ async def handle_chat(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
     try:
         response = await handle_chat_message(chat_request, request)
+        return JSONResponse(content=response)
+    except Exception as e:
+        logger.error(f"Error in handle_chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=response)
     except Exception as e:
         logger.error(f"Error in handle_chat: {str(e)}")
