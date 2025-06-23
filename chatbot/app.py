@@ -203,22 +203,24 @@ class S3Client:
     def list_scenarios(self):
         """S3에서 테스트 시나리오 목록을 가져옵니다."""
         try:
-            # 시나리오 디렉토리 목록 가져오기
+            # JSON 파일 목록 가져오기
             response = self.client.list_objects_v2(
                 Bucket=self.bucket,
                 Prefix=self.prefix,
                 Delimiter='/'
             )
             
-            # 시나리오 디렉토리 목록 추출
+            # JSON 파일만 필터링
             scenarios = []
-            if 'CommonPrefixes' in response:
-                for folder in response['CommonPrefixes']:
-                    folder_name = folder['Prefix'].split('/')[-2]  # 마지막 디렉토리 이름 추출
-                    if folder_name:  # 빈 문자열이 아닌 경우에만 추가
+            if 'Contents' in response:
+                for obj in response['Contents']:
+                    key = obj['Key']
+                    if key.endswith('.json'):
+                        # 파일명에서 .json 확장자 제거하고, _를 공백으로 변경
+                        name = os.path.basename(key).replace('.json', '').replace('_', ' ')
                         scenarios.append({
-                            'key': folder_name,
-                            'name': folder_name.replace('_', ' ').title()
+                            'key': key,
+                            'name': name
                         })
             
             return scenarios
