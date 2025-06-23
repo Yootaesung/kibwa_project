@@ -462,6 +462,11 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
         
     except Exception as e:
         logger.error(f"Error in handle_chat_message: {str(e)}")
+
+@app.post("/chat")
+async def handle_chat(chat_request: ChatRequest, request: Request):
+    """채팅 메시지를 처리합니다."""
+    return await handle_chat_message(chat_request, request)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
