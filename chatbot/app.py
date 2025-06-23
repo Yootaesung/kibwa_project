@@ -181,10 +181,12 @@ class S3Client:
         """
         if bucket_type == 'test':
             self.bucket = TEST_BUCKET
+            self.bucket_name = TEST_BUCKET
             self.prefix = TEST_PREFIX
             self.client = test_s3_client
         else:  # 'chatbot'
             self.bucket = CHATBOT_BUCKET
+            self.bucket_name = CHATBOT_BUCKET
             self.prefix = CHATBOT_PREFIX
             self.client = chatbot_s3_client
     
@@ -628,23 +630,16 @@ async def get_test_scenarios():
         # 테스트 시나리오는 test 버킷에서 가져옵니다.
         try:
             s3_client = S3Client(bucket_type='test')
-            logger.info(f"S3 client initialized with bucket: {s3_client.bucket_name}, prefix: {s3_client.prefix}")
+            logger.info(f"S3 client initialized with bucket: {s3_client.bucket}, prefix: {s3_client.prefix}")
             
             scenarios = s3_client.list_scenarios()
             logger.info(f"Retrieved {len(scenarios)} scenarios from S3")
             
-            # 시나리오가 없는 경우 경고 로그만 남기고 빈 배열 반환
+            # 시나리오가 없는 경우 빈 배열 반환
             if not scenarios:
-                logger.warning("No test scenarios found in S3 bucket")
+                logger.info("No test scenarios found in S3 bucket")
                 return {"scenarios": []}
             
-            # 시나리오 키에서 불필요한 접두어 제거
-            for scenario in scenarios:
-                if 'key' in scenario and scenario['key'].startswith(s3_client.prefix):
-                    scenario['original_key'] = scenario['key']  # 원본 키 보존 (디버깅용)
-                    scenario['key'] = scenario['key'][len(s3_client.prefix):]
-            
-            logger.info(f"Returning {len(scenarios)} scenarios to frontend")
             return {"scenarios": scenarios}
             
         except Exception as e:
@@ -656,9 +651,21 @@ async def get_test_scenarios():
         
     except HTTPException as he:
         logger.error(f"HTTP error in get_test_scenarios: {str(he.detail)}")
+        error_response = JSONResponse(
+            status_code=he.status_code,
+            content={"detail": str(he.detail)}
+        )
+        error_response.headers["Access-Control-Allow-Origin"] = "*"
+        error_response.headers["Access-Control-Allow-Credentials"] = "true"
         raise he
     except Exception as e:
         logger.error(f"Unexpected error in get_test_scenarios: {str(e)}", exc_info=True)
+        error_response = JSONResponse(
+            status_code=500,
+            content={"detail": f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"}
+        )
+        error_response.headers["Access-Control-Allow-Origin"] = "*"
+        error_response.headers["Access-Control-Allow-Credentials"] = "true"
         raise HTTPException(
             status_code=500, 
             detail=f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"
