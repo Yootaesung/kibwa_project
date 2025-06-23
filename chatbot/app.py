@@ -198,9 +198,16 @@ class S3Client:
                 Key=key
             )
             content = response['Body'].read().decode('utf-8')
+            
             # JSON 파일인 경우 파싱하여 반환
             if key.endswith('.json'):
-                return json.loads(content)
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON 파싱 오류: {str(e)}")
+                    logger.error(f"파일 내용: {content}")
+                    raise Exception(f"JSON 파일을 파싱하는 중 오류가 발생했습니다: {str(e)}")
+            
             return content
         except Exception as e:
             logger.error(f"S3 get_object error: {str(e)}")
