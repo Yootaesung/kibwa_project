@@ -392,7 +392,7 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest, response: Response):
+async def api_login(login_data: LoginRequest, response: Response, request: Request):
     """로그인 API 엔드포인트"""
     try:
         # 로그인 처리 로직
@@ -411,6 +411,13 @@ async def api_login(login_data: LoginRequest, response: Response):
                 secure=True,
                 max_age=60 * 60 * 24 * 7  # 7일
             )
+            
+            # 리다이렉트 처리
+            if request.url.path == "/api/login":
+                return RedirectResponse(url="/chat", status_code=status.HTTP_303_SEE_OTHER)
+            elif request.url.path == "/api/test/login":
+                return RedirectResponse(url="/test", status_code=status.HTTP_303_SEE_OTHER)
+            
             return {"message": "로그인 성공"}
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
@@ -427,28 +434,29 @@ async def api_login(login_data: LoginRequest, response: Response):
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
 
-@app.post("/api/register")
-async def api_register(register_data: RegisterRequest):
-    """회원가입 API 엔드포인트"""
-    try:
-        # 회원가입 처리 로직
-        user = member_manager.register_user(
-            register_data.username,
-            register_data.password
-        )
-        
-        if user:
-            return {"message": "회원가입 성공"}
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="회원가입 실패: 이미 존재하는 사용자 이름입니다."
-            )
-    except Exception as e:
-        logger.error(f"Error in api_register: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"서버에서 오류가 발생했습니다: {str(e)}"
+# This function has been moved to line 429
+# @app.post("/api/register")
+# async def api_register(register_data: RegisterRequest):
+#     """회원가입 API 엔드포인트"""
+#     try:
+#         # 회원가입 처리 로직
+#         success, message = member_manager.register(
+#             register_data.username,
+#             register_data.password
+#         )
+#         
+#         if success:
+#             return {"message": "회원가입 성공"}
+#         else:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail=message
+#             )
+#     except Exception as e:
+#         logger.error(f"Error in api_register: {str(e)}")
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"서버에서 오류가 발생했습니다: {str(e)}"
         )
 
 @app.get("/api/test/scenarios")
