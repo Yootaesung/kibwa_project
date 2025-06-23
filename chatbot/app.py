@@ -108,20 +108,30 @@ CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
 # S3 클라이언트 초기화 (테스트 버킷용)
-test_s3_client = boto3.client(
-    's3',
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-    region_name=os.getenv('AWS_DEFAULT_REGION')
-)
+try:
+    test_s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+        region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
+    )
+    logger.info("Test S3 client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize test S3 client: {str(e)}")
+    test_s3_client = None
 
 # S3 클라이언트 초기화 (챗봇 버킷용)
-chatbot_s3_client = boto3.client(
-    's3',
-    aws_access_key_id=os.getenv('KIBWA05_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('KIBWA05_SECRET_ACCESS_KEY'),
-    region_name=os.getenv('KIBWA05_DEFAULT_REGION', 'ap-northeast-3')
-)
+try:
+    chatbot_s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),  # KIBWA05_ACCESS_KEY_ID 대신 AWS_ACCESS_KEY_ID 사용
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),  # KIBWA05_SECRET_ACCESS_KEY 대신 AWS_SECRET_ACCESS_KEY 사용
+        region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
+    )
+    logger.info("Chatbot S3 client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize chatbot S3 client: {str(e)}")
+    chatbot_s3_client = None
 
 class S3Client:
     def __init__(self, bucket_type='chatbot'):
@@ -479,6 +489,14 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
         
         if success:
             # 쿠키 설정
+            response = JSONResponse(
+                content={
+                    "success": True,
+                    "redirect_url": "/chat"
+                },
+                status_code=200
+            )
+            
             response.set_cookie(
                 key="user_id",
                 value=login_data.username,
@@ -488,25 +506,15 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 리다이렉트 처리
-            if request.url.path == "/api/login":
-                return RedirectResponse(url="/chat", status_code=status.HTTP_302_FOUND)
-            elif request.url.path == "/api/test/login":
-                return RedirectResponse(url="/test", status_code=status.HTTP_302_FOUND)
+            return response
             
-            return JSONResponse(
-                content={
-                    "success": True,
-                    "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
-                },
-                status_code=200
-            )
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
                 status_code=401,
                 detail=message
             )
+            
     except HTTPException as e:
         raise e
     except Exception as e:
