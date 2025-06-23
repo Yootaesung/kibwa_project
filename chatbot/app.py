@@ -215,7 +215,23 @@ class S3Client:
                 scenario_key = f"{self.prefix}{scenario_key}"
             
             content = self.get_file(scenario_key)
-            return {"scenario": content}
+            
+            # JSON 데이터를 messages 배열로 변환
+            messages = []
+            for item in content:
+                messages.append({
+                    'role': 'user',
+                    'content': item['content'],
+                    'emotion': item['emotion'],
+                    'age_group': item['age_group'],
+                    'gender': item['gender'],
+                    'role': item['role'],
+                    'situation': item['situation'],
+                    'date': item['date']
+                })
+            
+            return {"scenario": {"messages": messages}}
+            
         except Exception as e:
             logger.error(f"S3에서 시나리오를 가져오는 중 오류 발생: {str(e)}")
             raise Exception(f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
