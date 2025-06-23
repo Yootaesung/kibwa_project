@@ -197,18 +197,7 @@ class S3Client:
                 Bucket=self.bucket,
                 Key=key
             )
-            content = response['Body'].read().decode('utf-8')
-            
-            # JSON 파일인 경우 파싱하여 반환
-            if key.endswith('.json'):
-                try:
-                    return json.loads(content)
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON 파싱 오류: {str(e)}")
-                    logger.error(f"파일 내용: {content}")
-                    raise Exception(f"JSON 파일을 파싱하는 중 오류가 발생했습니다: {str(e)}")
-            
-            return content
+            return response['Body'].read().decode('utf-8')
         except Exception as e:
             logger.error(f"S3 get_object error: {str(e)}")
             raise Exception(f"S3에서 파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
