@@ -551,12 +551,10 @@
         <div class="test-container">
             <div class="file-selector">
                 <h2>테스트할 시나리오 선택</h2>
-                <select id="scenario-select">
+                <select id="scenario-select" class="scenario-select">
                     <option value="">시나리오를 선택하세요...</option>
-                </select>
-                <ul id="scenario-list" class="scenario-list">
                     <!-- 시나리오 목록이 여기에 동적으로 로드됩니다 -->
-                </ul>
+                </select>
                 <div style="margin-top: 15px;">
                     <button id="test-control" class="btn" disabled>테스트 시작</button>
                 </div>
@@ -715,33 +713,40 @@
                     const response = await fetch('/api/test/scenarios');
                     const data = await response.json();
                     
-                    const scenarioList = document.getElementById('scenario-list');
-                    if (!scenarioList) {
-                        console.error('시나리오 목록 요소를 찾을 수 없습니다.');
+                    const scenarioSelect = document.getElementById('scenario-select');
+                    if (!scenarioSelect) {
+                        console.error('시나리오 선택 요소를 찾을 수 없습니다.');
                         return;
                     }
                     
-                    scenarioList.innerHTML = '';
+                    // 기존 옵션 제거 (첫 번째 기본 옵션은 유지)
+                    while (scenarioSelect.firstChild) {
+                        scenarioSelect.removeChild(scenarioSelect.firstChild);
+                    }
+                    
+                    // 기본 옵션 추가
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '시나리오를 선택하세요...';
+                    scenarioSelect.appendChild(defaultOption);
                     
                     if (data.scenarios && data.scenarios.length > 0) {
                         data.scenarios.forEach(scenario => {
-                            const li = document.createElement('li');
-                            li.className = 'scenario-item';
-                            li.innerHTML = `
-                                <div class="scenario-name">${scenario.name}</div>
-                                <button onclick="selectScenario('${scenario.key}')" class="select-btn">선택</button>
-                            `;
-                            scenarioList.appendChild(li);
+                            const option = document.createElement('option');
+                            option.value = scenario.key;
+                            option.textContent = scenario.name;
+                            scenarioSelect.appendChild(option);
                         });
                     } else {
-                        scenarioList.innerHTML = '<li class="no-scenario">사용 가능한 시나리오가 없습니다.</li>';
+                        const noScenarioOption = document.createElement('option');
+                        noScenarioOption.value = '';
+                        noScenarioOption.textContent = '사용 가능한 시나리오가 없습니다.';
+                        scenarioSelect.appendChild(noScenarioOption);
                     }
                     
                     // 시나리오 선택 이벤트 리스너
-                    const scenarioSelect = document.getElementById('scenario-select');
-                    const testControlBtn = document.getElementById('start-test');
-                    
-                    if (scenarioSelect && testControlBtn) {
+                    const testControlBtn = document.getElementById('test-control');
+                    if (testControlBtn) {
                         scenarioSelect.addEventListener('change', () => {
                             testControlBtn.disabled = !scenarioSelect.value;
                         });
@@ -752,10 +757,10 @@
                     const errorMsg = error.message || '알 수 없는 오류가 발생했습니다.';
                     alert('시나리오를 불러오는 중 오류가 발생했습니다: ' + errorMsg);
                     
-                    // 오류 발생 시 빈 목록 표시
-                    const scenarioList = document.getElementById('scenario-list');
-                    if (scenarioList) {
-                        scenarioList.innerHTML = '<li class="error">시나리오를 불러오는 데 실패했습니다.</li>';
+                    // 오류 발생 시 기본 옵션만 남김
+                    const scenarioSelect = document.getElementById('scenario-select');
+                    if (scenarioSelect) {
+                        scenarioSelect.innerHTML = '<option value="">시나리오를 불러오는 데 실패했습니다.</option>';
                     }
                 }
             }
