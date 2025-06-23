@@ -1063,10 +1063,47 @@
                                 const messageIndex = Array.from(messageElements).indexOf(el);
                                 const userMessageIndex = Math.floor(messageIndex / 2); // 사용자 메시지의 인덱스 (0부터 시작)
                                 
-                                // 시나리오에서 해당 메시지의 감정 가져오기
+                                    // 시나리오에서 해당 메시지의 감정 가져오기
+                                if (currentScenario.messages && currentScenario.messages[userMessageIndex]) {
+                                    emotion = currentScenario.messages[userMessageIndex].emotion || '중립';
+                                }
+                                
+                                messages.push({
+                                    role,
+                                    content,
+                                    emotion
+                                });
+                            } else {
+                                messages.push({
+                                    role,
+                                    content
+                                });
+                            }
+                        });
+                        
+                        // 서버에 채팅 로그 저장
+                        try {
+                            const response = await fetch('/api/save-chat-log', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    scenarioId: currentScenario.id,
+                                    messages: messages,
+                                    emotionCounts: {...emotionCounts}
+                                })
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error('채팅 로그 저장 실패');
+                            }
+                            
+                            console.log('테스트가 완료되었습니다. 채팅 로그가 저장되었습니다.');
+                        } catch (error) {
+                            console.error('채팅 로그 저장 중 오류:', error);
+                        }
                     }
-                    
-                    console.log('테스트가 완료되었습니다. 채팅 로그가 저장되었습니다.');
                 } catch (error) {
                     console.error('채팅 로그 저장 중 오류:', error);
                 }
