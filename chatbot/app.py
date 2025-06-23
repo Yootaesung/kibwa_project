@@ -209,6 +209,10 @@ class S3Client:
     def get_scenario(self, scenario_key):
         """특정 시나리오를 가져옵니다."""
         try:
+            # 시나리오 키가 prefix로 시작하지 않는 경우 prefix를 추가
+            if not scenario_key.startswith(self.prefix):
+                scenario_key = f"{self.prefix}{scenario_key}"
+            
             # S3에서 파일 내용 가져오기
             content = self.get_file(scenario_key)
             return {"scenario": content}
