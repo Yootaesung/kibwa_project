@@ -156,7 +156,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # ---------------------------
 # 3. S3 멤버 관리 클래스
 # ---------------------------
-from chatbot.member import MemberManager
+from chatbot.member import MemberManager, MongoDBManager
 
 # MongoDB 매니저 인스턴스 생성
 db_manager = MongoDBManager()
