@@ -404,12 +404,23 @@
 
         async function checkAuthentication() {
             try {
-                const response = await fetch('/api/check-auth');
+                const response = await fetch('/api/check-auth', {
+                    credentials: 'include'  // 쿠키를 포함하여 요청
+                });
+                
                 if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('인증 실패:', errorData.detail || '알 수 없는 오류');
                     window.location.href = '/login';
                     // 리다이렉트 후 함수 실행 중지
                     throw new Error('Not authenticated');
                 }
+                
+                // 인증 성공 시 사용자 정보 저장 (필요한 경우)
+                const data = await response.json();
+                console.log('인증 성공:', data.username);
+                return data;
+                
             } catch (error) {
                 console.error('인증 체크 중 오류 발생:', error);
                 window.location.href = '/login';

@@ -58,11 +58,11 @@ app = FastAPI()
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://3.107.174.223:8000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    expose_headers=["Content-Disposition"],
 )
 
 # 인증 미들웨어
@@ -478,7 +478,7 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest, response: Response, request: Request):
+async def api_login(login_data: LoginRequest):
     """로그인 API 엔드포인트"""
     try:
         # 로그인 처리 로직
@@ -488,7 +488,7 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
         )
         
         if success:
-            # 쿠키 설정
+            # 응답 생성
             response = JSONResponse(
                 content={
                     "success": True,
@@ -497,28 +497,32 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 status_code=200
             )
             
+            # 쿠키 설정 (SameSite=None, Secure=True로 설정하여 크로스 사이트 요청에서도 쿠키 전송 가능)
             response.set_cookie(
                 key="user_id",
                 value=login_data.username,
                 httponly=True,
                 samesite="lax",
                 secure=True,
-                max_age=60 * 60 * 24 * 7  # 7일
+                max_age=60 * 60 * 24 * 7,  # 7일
+                path="/"
             )
             
+            logger.info(f"로그인 성공: {login_data.username}")
             return response
             
         else:
-            logger.warning(f"로그인 실패: {login_data.username}")
+            logger.warning(f"로그인 실패: {login_data.username} - {message}")
             raise HTTPException(
                 status_code=401,
                 detail=message
             )
             
     except HTTPException as e:
+        logger.error(f"HTTP 에러 발생: {str(e)}")
         raise e
     except Exception as e:
-        logger.error(f"Error in api_login: {str(e)}", exc_info=True)
+        logger.error(f"로그인 처리 중 오류 발생: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."

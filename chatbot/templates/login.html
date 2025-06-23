@@ -119,6 +119,12 @@
             document.getElementById('username-error').textContent = '';
             document.getElementById('password-error').textContent = '';
             
+            // 로딩 상태 표시
+            const loginButton = document.querySelector('button[type="submit"]');
+            const originalButtonText = loginButton.textContent;
+            loginButton.disabled = true;
+            loginButton.textContent = '로그인 중...';
+            
             try {
                 const response = await fetch(`${getBaseUrl()}/api/login`, {
                     method: 'POST',
@@ -132,28 +138,36 @@
                     })
                 });
 
-                const data = await response.json();
-                if (response.ok) {
-                    // 서버에서 반환한 리다이렉트 URL로 이동
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
-                    } else {
-                        window.location.href = '/chat';
-                    }
-                    return;
+                const data = await response.json().catch(async (err) => {
+                    // JSON 파싱 실패 시 응답 텍스트로 에러 메시지 생성
+                    const text = await response.text();
+                    throw new Error(`서버 응답 오류 (${response.status}): ${text}`);
+                });
+
+                if (response.ok && data.success) {
+                    // 로그인 성공 시 리다이렉트
+                    console.log('로그인 성공, 리다이렉트:', data.redirect_url);
+                    window.location.href = data.redirect_url || '/chat';
                 } else {
                     // 에러 메시지 표시
-                    if (data.detail && data.detail.includes('존재하지')) {
-                        document.getElementById('username-error').textContent = data.detail;
-                    } else if (data.detail) {
-                        document.getElementById('password-error').textContent = data.detail;
+                    const errorMessage = data.detail || '로그인에 실패했습니다. 다시 시도해주세요.';
+                    
+                    if (errorMessage.includes('존재하지')) {
+                        document.getElementById('username-error').textContent = errorMessage;
                     } else {
-                        document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                        document.getElementById('password-error').textContent = errorMessage;
                     }
+                    
+                    console.error('로그인 실패:', errorMessage);
                 }
             } catch (error) {
-                console.error('Login error:', error);
-                document.getElementById('password-error').textContent = '로그인 중 오류가 발생했습니다.';
+                console.error('로그인 오류:', error);
+                document.getElementById('password-error').textContent = 
+                    error.message || '로그인 중 오류가 발생했습니다.';
+            } finally {
+                // 로딩 상태 해제
+                loginButton.disabled = false;
+                loginButton.textContent = originalButtonText;
             }
         }
     </script>
