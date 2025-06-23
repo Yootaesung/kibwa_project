@@ -190,7 +190,7 @@ class S3Client:
             self.prefix = CHATBOT_PREFIX
             self.client = chatbot_s3_client
     
-    async def get_file(self, key):
+    def get_file(self, key):
         """S3에서 파일을 가져옵니다."""
         try:
             response = self.client.get_object(
@@ -210,10 +210,6 @@ class S3Client:
         """특정 시나리오를 가져옵니다."""
         try:
             # S3에서 파일 내용 가져오기
-            # 키가 완전한 경로가 아닌 경우 prefix 추가
-            if not scenario_key.startswith(self.prefix):
-                scenario_key = f"{self.prefix}{scenario_key}"
-            
             content = self.get_file(scenario_key)
             
             # JSON 데이터를 messages 배열로 변환
