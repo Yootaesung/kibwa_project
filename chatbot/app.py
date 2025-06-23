@@ -147,31 +147,18 @@ TEST_PREFIX = 'project/'
 CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
-# S3 클라이언트 초기화 (테스트 버킷용)
+# S3 클라이언트 초기화
 try:
-    test_s3_client = boto3.client(
+    s3_client = boto3.client(
         's3',
         aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
         region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
     )
-    logger.info("Test S3 client initialized successfully")
+    logger.info("S3 client initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize test S3 client: {str(e)}")
-    test_s3_client = None
-
-# S3 클라이언트 초기화 (챗봇 버킷용)
-try:
-    chatbot_s3_client = boto3.client(
-        's3',
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),  # KIBWA05_ACCESS_KEY_ID 대신 AWS_ACCESS_KEY_ID 사용
-        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),  # KIBWA05_SECRET_ACCESS_KEY 대신 AWS_SECRET_ACCESS_KEY 사용
-        region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
-    )
-    logger.info("Chatbot S3 client initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize chatbot S3 client: {str(e)}")
-    chatbot_s3_client = None
+    logger.error(f"Failed to initialize S3 client: {str(e)}")
+    s3_client = None
 
 class S3Client:
     def __init__(self, bucket_type='chatbot'):
@@ -211,6 +198,8 @@ class S3Client:
             # JSON 문자열 파싱
             try:
                 data = json.loads(content)
+                if not isinstance(data, list):
+                    raise ValueError("JSON 데이터가 배열이 아닙니다")
             except json.JSONDecodeError as e:
                 logger.error(f"JSON 파싱 오류: {str(e)}")
                 logger.error(f"파일 내용: {content}")
@@ -219,6 +208,14 @@ class S3Client:
             # JSON 데이터를 messages 배열로 변환
             messages = []
             for item in data:
+                if not isinstance(item, dict):
+                    logger.error(f"Invalid item format: {item}")
+                    continue
+                
+                if 'content' not in item or 'emotion' not in item:
+                    logger.error(f"Missing required fields in item: {item}")
+                    continue
+                
                 messages.append({
                     'role': 'user',
                     'content': item['content'],
@@ -490,10 +487,6 @@ async def handle_chat(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
     try:
         response = await handle_chat_message(chat_request, request)
-        return JSONResponse(content=response)
-    except Exception as e:
-        logger.error(f"Error in handle_chat: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=response)
     except Exception as e:
         logger.error(f"Error in handle_chat: {str(e)}")
