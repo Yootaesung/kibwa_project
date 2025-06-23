@@ -58,11 +58,15 @@ app = FastAPI()
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://3.107.174.223:8000"],
+    allow_origins=[
+        "http://localhost:8000", 
+        "http://3.107.174.223:8000",
+        "http://3.107.174.223"
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
-    expose_headers=["Content-Disposition"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # 인증 미들웨어
@@ -477,8 +481,58 @@ async def register_page(request: Request):
             return RedirectResponse(url="/chat")
     return templates.TemplateResponse("register.html", {"request": request})
 
+@app.get("/api/check-auth")
+async def check_auth(request: Request):
+    """인증 상태 확인 엔드포인트"""
+    try:
+        user_id = request.cookies.get("user_id")
+        if not user_id:
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "인증되지 않은 사용자입니다."}
+            )
+            response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
+        
+        # 사용자 정보 조회
+        user = member_manager.get_user(user_id)
+        if not user:
+            # 사용자 정보가 없으면 쿠키 삭제
+            response = JSONResponse(
+                status_code=404,
+                content={"detail": "사용자 정보를 찾을 수 없습니다."}
+            )
+            response.delete_cookie(
+                key="user_id",
+                path="/",
+                domain=None,
+                secure=False,
+                httponly=True
+            )
+            response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
+        
+        # 인증 성공
+        response_data = {"username": user_id, "name": user.get("name", "")}
+        response = JSONResponse(content=response_data)
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+        
+    except Exception as e:
+        logger.error(f"인증 확인 중 오류: {str(e)}")
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "서버 오류가 발생했습니다."}
+        )
+        response.headers["Access-Control-Allow-Origin"] = request.headers.get("origin", "*")
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest):
+async def api_login(login_data: LoginRequest, request: Request):
     """로그인 API 엔드포인트"""
     try:
         # 로그인 처리 로직
@@ -489,21 +543,30 @@ async def api_login(login_data: LoginRequest):
         
         if success:
             # 응답 생성
+            response_data = {
+                "success": True,
+                "redirect_url": "/chat",
+                "username": login_data.username
+            }
+            
             response = JSONResponse(
-                content={
-                    "success": True,
-                    "redirect_url": "/chat"
-                },
+                content=response_data,
                 status_code=200
             )
             
-            # 쿠키 설정 (SameSite=None, Secure=True로 설정하여 크로스 사이트 요청에서도 쿠키 전송 가능)
+            # CORS 헤더 설정
+            origin = request.headers.get("origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+            
+            # 쿠키 설정
             response.set_cookie(
                 key="user_id",
                 value=login_data.username,
                 httponly=True,
                 samesite="lax",
-                secure=True,
+                secure=False,  # 개발 환경에서는 False, 프로덕션에서는 True로 설정
                 max_age=60 * 60 * 24 * 7,  # 7일
                 path="/"
             )
@@ -513,20 +576,39 @@ async def api_login(login_data: LoginRequest):
             
         else:
             logger.warning(f"로그인 실패: {login_data.username} - {message}")
-            raise HTTPException(
+            response = JSONResponse(
                 status_code=401,
-                detail=message
+                content={"detail": message}
             )
+            origin = request.headers.get("origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
             
     except HTTPException as e:
         logger.error(f"HTTP 에러 발생: {str(e)}")
-        raise e
+        response = JSONResponse(
+            status_code=e.status_code,
+            content={"detail": str(e.detail)}
+        )
+        origin = request.headers.get("origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
+        
     except Exception as e:
         logger.error(f"로그인 처리 중 오류 발생: {str(e)}", exc_info=True)
-        raise HTTPException(
+        response = JSONResponse(
             status_code=500,
-            detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            content={"detail": "서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."}
         )
+        origin = request.headers.get("origin")
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
 
 @app.get("/test/login")
 async def test_login():
