@@ -132,17 +132,20 @@
                     credentials: 'include'
                 });
                 
-                // 서버가 리다이렉트를 보내는 경우
-                if (response.redirected) {
-                    window.location.href = response.url;
-                    return;
-                }
-                
-                const data = await response.json();
-                
                 if (response.ok) {
                     // 로그인 성공 시 채팅 페이지로 리다이렉트
                     window.location.href = '/chat';
+                } else {
+                    const data = await response.json();
+                    // 에러 메시지 표시
+                    if (data.detail && data.detail.includes('존재하지')) {
+                        document.getElementById('username-error').textContent = data.detail;
+                    } else if (data.detail) {
+                        document.getElementById('password-error').textContent = data.detail;
+                    } else {
+                        document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                    }
+                }
                 } else {
                     // 에러 메시지 표시
                     if (data.detail && data.detail.includes('존재하지')) {
