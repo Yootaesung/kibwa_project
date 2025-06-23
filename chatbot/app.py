@@ -415,19 +415,22 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 리다이렉트 처리
-            if request.url.path == "/api/login":
-                return RedirectResponse(url="/chat", status_code=status.HTTP_303_SEE_OTHER)
-            elif request.url.path == "/api/test/login":
-                return RedirectResponse(url="/test", status_code=status.HTTP_303_SEE_OTHER)
-            
-            return {"message": "로그인 성공"}
+            # 클라이언트에서 리다이렉트 처리하도록 JSON 응답
+            return {
+                "success": True,
+                "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
+            }
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
                 status_code=401,
                 detail=message
             )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in api_login: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="서버 오류가 발생했습니다.")
     except HTTPException:
         raise
     except Exception as e:
