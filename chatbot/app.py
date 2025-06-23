@@ -208,9 +208,17 @@ class S3Client:
             # S3에서 파일 내용 가져오기
             content = self.get_file(scenario_key)
             
+            # JSON 문자열 파싱
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON 파싱 오류: {str(e)}")
+                logger.error(f"파일 내용: {content}")
+                raise Exception(f"JSON 파일을 파싱하는 중 오류가 발생했습니다: {str(e)}")
+            
             # JSON 데이터를 messages 배열로 변환
             messages = []
-            for item in content:
+            for item in data:
                 messages.append({
                     'role': 'user',
                     'content': item['content'],
