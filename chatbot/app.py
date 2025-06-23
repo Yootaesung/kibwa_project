@@ -147,18 +147,31 @@ TEST_PREFIX = 'project/'
 CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
-# S3 클라이언트 초기화
+# S3 클라이언트 초기화 (테스트 버킷용)
 try:
-    s3_client = boto3.client(
+    test_s3_client = boto3.client(
         's3',
         aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
         aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
         region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
     )
-    logger.info("S3 client initialized successfully")
+    logger.info("Test S3 client initialized successfully")
 except Exception as e:
-    logger.error(f"Failed to initialize S3 client: {str(e)}")
-    s3_client = None
+    logger.error(f"Failed to initialize test S3 client: {str(e)}")
+    test_s3_client = None
+
+# S3 클라이언트 초기화 (챗봇 버킷용)
+try:
+    chatbot_s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),  # KIBWA05_ACCESS_KEY_ID 대신 AWS_ACCESS_KEY_ID 사용
+        aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),  # KIBWA05_SECRET_ACCESS_KEY 대신 AWS_SECRET_ACCESS_KEY 사용
+        region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-northeast-3')
+    )
+    logger.info("Chatbot S3 client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize chatbot S3 client: {str(e)}")
+    chatbot_s3_client = None
 
 class S3Client:
     def __init__(self, bucket_type='chatbot'):
@@ -487,6 +500,10 @@ async def handle_chat(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
     try:
         response = await handle_chat_message(chat_request, request)
+        return JSONResponse(content=response)
+    except Exception as e:
+        logger.error(f"Error in handle_chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
         return JSONResponse(content=response)
     except Exception as e:
         logger.error(f"Error in handle_chat: {str(e)}")
