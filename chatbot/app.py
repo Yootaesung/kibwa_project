@@ -442,6 +442,14 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
             status_code=500,
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
+
+@app.get("/api/test/login")
+async def test_login(request: Request):
+    """테스트 로그인 페이지"""
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "test_mode": True
+    })
     except HTTPException:
         raise
     except Exception as e:

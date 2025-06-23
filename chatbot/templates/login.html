@@ -133,30 +133,22 @@
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    // 서버 응답에 따라 리다이렉트 처리
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
-                    } else {
-                        // 기본적으로 채팅 페이지로 이동
-                        window.location.href = '/chat';
-                    }
+                    // 서버가 리다이렉트 응답을 보내면 자동으로 이동됨
+                    return;
+                }
+
+                // 에러 메시지 표시
+                const errorData = await response.json();
+                if (errorData.detail && errorData.detail.includes('존재하지')) {
+                    document.getElementById('username-error').textContent = errorData.detail;
+                } else if (errorData.detail) {
+                    document.getElementById('password-error').textContent = errorData.detail;
                 } else {
-                    // 에러 메시지 표시
-                    const errorData = await response.json();
-                    if (errorData.detail && errorData.detail.includes('존재하지')) {
-                        document.getElementById('username-error').textContent = errorData.detail;
-                    } else if (errorData.detail) {
-                        document.getElementById('password-error').textContent = errorData.detail;
-                    } else {
-                        document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
-                    }
+                    document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 document.getElementById('password-error').textContent = '로그인 중 오류가 발생했습니다.';
-            } finally {
-                // 로딩 표시 제거 등의 작업을 여기에 추가할 수 있습니다
             }
         }
     </script>
