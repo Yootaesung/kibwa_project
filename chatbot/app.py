@@ -218,12 +218,7 @@ class S3Client:
                 messages.append({
                     'role': 'user',
                     'content': item['content'],
-                    'emotion': item['emotion'],
-                    'age_group': item['age_group'],
-                    'gender': item['gender'],
-                    'role': item['role'],
-                    'situation': item['situation'],
-                    'date': item['date']
+                    'emotion': item['emotion']
                 })
             
             return {"scenario": {"messages": messages}}
