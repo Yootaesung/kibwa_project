@@ -214,12 +214,13 @@ class S3Client:
             scenarios = []
             if 'Contents' in response:
                 for obj in response['Contents']:
-                    key = obj['Key']
-                    if key.endswith('.json'):
-                        # 파일명에서 .json 확장자 제거하고, _를 공백으로 변경
-                        name = os.path.basename(key).replace('.json', '').replace('_', ' ')
+                    # 키가 prefix로 시작하고 JSON 파일인 경우만 처리
+                    if obj['Key'].startswith(self.prefix) and obj['Key'].endswith('.json'):
+                        # prefix 제거 후 파일명에서 .json 확장자 제거하고, _를 공백으로 변경
+                        relative_key = obj['Key'][len(self.prefix):]
+                        name = os.path.basename(relative_key).replace('.json', '').replace('_', ' ')
                         scenarios.append({
-                            'key': key,
+                            'key': obj['Key'],
                             'name': name
                         })
             
