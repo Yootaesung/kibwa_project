@@ -466,7 +466,8 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
 @app.post("/chat")
 async def handle_chat(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
-    return await handle_chat_message(chat_request, request)
+    try:
+        return await handle_chat_message(chat_request, request)
     except Exception as e:
         logger.error(f"Error in handle_chat: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
