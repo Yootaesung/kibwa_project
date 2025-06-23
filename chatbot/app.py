@@ -396,16 +396,16 @@ async def api_login(login_data: LoginRequest, response: Response):
     """로그인 API 엔드포인트"""
     try:
         # 로그인 처리 로직
-        user = member_manager.authenticate_user(
+        success, message = member_manager.authenticate_user(
             login_data.username,
             login_data.password
         )
         
-        if user:
+        if success:
             # 쿠키 설정
             response.set_cookie(
                 key="user_id",
-                value=user["username"],  # 딕셔너리 접근으로 수정
+                value=login_data.username,
                 httponly=True,
                 samesite="lax",
                 secure=True,
@@ -416,7 +416,7 @@ async def api_login(login_data: LoginRequest, response: Response):
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
                 status_code=401,
-                detail="로그인 실패: 사용자 이름 또는 비밀번호가 올바르지 않습니다."
+                detail=message
             )
     except HTTPException:
         raise

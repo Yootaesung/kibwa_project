@@ -108,41 +108,35 @@ class MemberManager:
             logger.error(f"사용자 조회 중 오류 발생: {str(e)}")
             return None
 
-    def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
+    def authenticate_user(self, username: str, password: str) -> Tuple[bool, str]:
         """
-        사용자 인증을 수행합니다.
+        Authenticate user credentials.
         
         Args:
-            username: 사용자명
-            password: 비밀번호
+            username: Username
+            password: Password
             
         Returns:
-            Optional[Dict]: 인증된 사용자 정보 또는 None
+            Tuple[bool, str]: (Success status, Message)
         """
-        if not self.db or not self.db.users:
-            logger.error("데이터베이스 연결이 설정되지 않았습니다.")
-            return None
-            
         try:
-            # 사용자 조회
             user = self.get_user(username)
             if not user:
-                logger.warning(f"사용자를 찾을 수 없음: {username}")
-                return None
-            
-            # 비밀번호 검증
+                return False, "User not found"
+                
             salt = user.get("salt")
+            if not salt:
+                return False, "Invalid user data"
+                
             hashed_password = self._hash_password(password, salt)
-            
             if hashed_password == user.get("password"):
-                return user
+                return True, "Authentication successful"
             else:
-                logger.warning(f"비밀번호 불일치: {username}")
-                return None
+                return False, "Authentication failed: Incorrect password"
                 
         except Exception as e:
-            logger.error(f"인증 중 오류 발생: {str(e)}")
-            return None
+            logger.error(f"Authentication error: {str(e)}")
+            return False, "Authentication error occurred"
 
     def register(self, username: str, password: str) -> Tuple[bool, str]:
         """
@@ -181,39 +175,10 @@ class MemberManager:
                 return True, "회원가입이 완료되었습니다."
             except Exception as e:
                 logger.error(f"MongoDB 저장 중 오류 발생: {str(e)}")
-                return False, "회원가입 중 오류가 발생했습니다."
 
         except Exception as e:
-            logger.error(f"회원가입 중 오류 발생: {e}")
-            return False, f"회원가입 중 오류가 발생했습니다: {str(e)}"
-
-    def login(self, username: str, password: str) -> Tuple[bool, str]:
-        """
-        회원 로그인을 처리합니다.
-        
-        Args:
-            username: 사용자명
-            password: 비밀번호
-            
-        Returns:
-            Tuple[bool, str]: (성공 여부, 메시지)
-        """
-        try:
-            # 사용자 조회
-            user = self.get_user(username)
-            if not user:
-                return False, "사용자가 존재하지 않습니다."
-
-            # 비밀번호 검증
-            salt = user.get('salt')
-            if not salt:
-                return False, "비밀번호 검증에 실패했습니다."
-
-            hashed_password = self._hash_password(password, salt)
-            if user['password'] != hashed_password:
-                return False, "비밀번호가 일치하지 않습니다."
-
-            # 로그인 성공
+            logger.error(f"Registration error: {e}")
+            return False, f"Registration error occurred: {str(e)}"
             self.update_session(username)  # 세션 업데이트
             logger.info(f"로그인 성공: {username}")
             return True, "로그인 성공"
