@@ -39,7 +39,7 @@ class ChatBot:
             ]
 
             # OpenAI API 호출
-            response = await self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=messages
             )
