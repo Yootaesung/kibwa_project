@@ -220,6 +220,7 @@ def save_chat_message(username: str, role: str, content: str):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    is_test: bool = False
 
 class RegisterRequest(BaseModel):
     username: str
@@ -395,6 +396,7 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
+@app.post("/api/test/login")
 async def api_login(login_data: LoginRequest, response: Response, request: Request):
     """로그인 API 엔드포인트"""
     try:
@@ -415,19 +417,24 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 리다이렉트 처리
-            if request.url.path == "/api/login":
-                return RedirectResponse(url="/chat", status_code=status.HTTP_302_FOUND)
-            elif request.url.path == "/api/test/login":
-                return RedirectResponse(url="/test", status_code=status.HTTP_302_FOUND)
+            # AJAX 요청인지 확인 (X-Requested-With 헤더 확인)
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
             
-            return JSONResponse(
-                content={
-                    "success": True,
-                    "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
-                },
-                status_code=200
-            )
+            # 리다이렉트 URL 결정
+            redirect_url = "/test" if request.url.path == "/api/test/login" else "/chat"
+            
+            # AJAX 요청이면 JSON 응답, 아니면 리다이렉트
+            if is_ajax:
+                return JSONResponse(
+                    content={
+                        "success": True,
+                        "redirect_url": redirect_url
+                    },
+                    status_code=200
+                )
+            else:
+                return RedirectResponse(url=redirect_url, status_code=status.HTTP_302_FOUND)
+                
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(

@@ -99,7 +99,7 @@
                 계정이 없으신가요? <a href="/register">회원가입</a>
             </div>
             <div class="test-link">
-                <a href="/api/test/login">테스트 하기</a>
+                <a href="#" id="test-login-link">테스트 하기</a>
             </div>
         </div>
     </div>
@@ -109,7 +109,7 @@
             return window.location.origin;
         }
 
-        async function handleLogin(e) {
+        async function handleLogin(e, isTest = false) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
@@ -120,7 +120,8 @@
             document.getElementById('password-error').textContent = '';
             
             try {
-                const response = await fetch(`${getBaseUrl()}/api/login`, {
+                const endpoint = isTest ? '/api/test/login' : '/api/login';
+                const response = await fetch(`${getBaseUrl()}${endpoint}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -128,21 +129,30 @@
                     credentials: 'include',
                     body: JSON.stringify({
                         username: username,
-                        password: password
+                        password: password,
+                        is_test: isTest
                     })
                 });
 
-                if (response.ok) {
-                    // 서버가 리다이렉트 응답을 보내면 자동으로 이동됨
+                if (response.redirected) {
+                    // 서버에서 리다이렉트 응답을 보낸 경우
+                    window.location.href = response.url;
+                    return;
+                }
+
+                const data = await response.json();
+                
+                if (response.ok && data.redirect_url) {
+                    // JSON 응답에 리다이렉트 URL이 있는 경우
+                    window.location.href = data.redirect_url;
                     return;
                 }
 
                 // 에러 메시지 표시
-                const errorData = await response.json();
-                if (errorData.detail && errorData.detail.includes('존재하지')) {
-                    document.getElementById('username-error').textContent = errorData.detail;
-                } else if (errorData.detail) {
-                    document.getElementById('password-error').textContent = errorData.detail;
+                if (data.detail && data.detail.includes('존재하지')) {
+                    document.getElementById('username-error').textContent = data.detail;
+                } else if (data.detail) {
+                    document.getElementById('password-error').textContent = data.detail;
                 } else {
                     document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
                 }
@@ -151,6 +161,20 @@
                 document.getElementById('password-error').textContent = '로그인 중 오류가 발생했습니다.';
             }
         }
+        
+        // 테스트 로그인 핸들러
+        function handleTestLogin(e) {
+            e.preventDefault();
+            handleLogin(e, true);
+        }
+        
+        // 테스트 링크에 이벤트 리스너 추가
+        document.addEventListener('DOMContentLoaded', function() {
+            const testLink = document.getElementById('test-login-link');
+            if (testLink) {
+                testLink.addEventListener('click', handleTestLogin);
+            }
+        });
     </script>
 </body>
 </html>
