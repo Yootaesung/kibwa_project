@@ -199,14 +199,14 @@ class S3Client:
         except Exception as e:
             logger.error(f"S3 get_object error: {str(e)}")
             raise Exception(f"S3에서 파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
-    
+
     def list_scenarios(self):
-        """테스트 시나리오 목록 조회"""
+        """S3에서 테스트 시나리오 목록을 가져옵니다."""
         try:
-            # 시나리오가 있는 디렉토리 목록 가져오기
+            # 시나리오 디렉토리 목록 가져오기
             response = self.client.list_objects_v2(
                 Bucket=self.bucket,
-                Prefix=f"{self.prefix}scenarios/",
+                Prefix=self.prefix,
                 Delimiter='/'
             )
             
@@ -222,9 +222,12 @@ class S3Client:
                         })
             
             return scenarios
+            
         except Exception as e:
-            logger.error(f"Error listing scenarios: {str(e)}")
-            raise Exception(f"시나리오 목록을 가져오는 중 오류가 발생했습니다: {str(e)}")
+            logger.error(f"S3 시나리오 목록 가져오기 실패: {str(e)}")
+            raise Exception(f"S3에서 시나리오 목록을 가져오는 중 오류가 발생했습니다: {str(e)}")
+    
+
 
 def ensure_s3_paths():
     """필요한 S3 경로가 존재하는지 확인하고 없으면 생성"""
