@@ -88,6 +88,62 @@ class MemberManager:
         ).hex()
         return hashed
 
+    def get_user(self, username: str) -> Optional[Dict]:
+        """
+        사용자명으로 사용자 정보를 조회합니다.
+        
+        Args:
+            username: 조회할 사용자명
+            
+        Returns:
+            Optional[Dict]: 사용자 정보 또는 None
+        """
+        if not self.db or not self.db.users:
+            return None
+            
+        try:
+            user = self.db.users.find_one({"username": username})
+            return user
+        except Exception as e:
+            logger.error(f"사용자 조회 중 오류 발생: {str(e)}")
+            return None
+
+    def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
+        """
+        사용자 인증을 수행합니다.
+        
+        Args:
+            username: 사용자명
+            password: 비밀번호
+            
+        Returns:
+            Optional[Dict]: 인증된 사용자 정보 또는 None
+        """
+        if not self.db or not self.db.users:
+            logger.error("데이터베이스 연결이 설정되지 않았습니다.")
+            return None
+            
+        try:
+            # 사용자 조회
+            user = self.get_user(username)
+            if not user:
+                logger.warning(f"사용자를 찾을 수 없음: {username}")
+                return None
+            
+            # 비밀번호 검증
+            salt = user.get("salt")
+            hashed_password = self._hash_password(password, salt)
+            
+            if hashed_password == user.get("password"):
+                return user
+            else:
+                logger.warning(f"비밀번호 불일치: {username}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"인증 중 오류 발생: {str(e)}")
+            return None
+
     def register(self, username: str, password: str) -> Tuple[bool, str]:
         """
         새로운 회원을 등록합니다.
@@ -97,7 +153,7 @@ class MemberManager:
             password: 비밀번호
             
         Returns:
-            Tuple[bool, str]: (성공 여부, 메시지)
+            Tuple[bool, str]: (성공 여부, 메시지)"""
         """
         try:
             # 중복 체크

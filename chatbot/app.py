@@ -380,13 +380,12 @@ async def test_page(request: Request):
         return RedirectResponse(url="/login")
     return templates.TemplateResponse("test.html", {"request": request})
 
-@app.get("/register")
+@app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """회원가입 페이지를 반환합니다."""
-    # 이미 로그인된 사용자는 채팅 페이지로 리다이렉트
+    # 이미 로그인한 사용자는 채팅 페이지로 리다이렉트
     user_id = request.cookies.get("user_id")
     if user_id:
-        # 사용자 존재 여부 확인
         user = member_manager.get_user(user_id)
         if user:
             return RedirectResponse(url="/chat")
@@ -406,7 +405,7 @@ async def api_login(login_data: LoginRequest, response: Response):
             # 쿠키 설정
             response.set_cookie(
                 key="user_id",
-                value=user.username,
+                value=user["username"],  # 딕셔너리 접근으로 수정
                 httponly=True,
                 samesite="lax",
                 secure=True,
@@ -414,15 +413,18 @@ async def api_login(login_data: LoginRequest, response: Response):
             )
             return {"message": "로그인 성공"}
         else:
+            logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
                 status_code=401,
                 detail="로그인 실패: 사용자 이름 또는 비밀번호가 올바르지 않습니다."
             )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error in api_login: {str(e)}")
+        logger.error(f"Error in api_login: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"서버에서 오류가 발생했습니다: {str(e)}"
+            detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
 
 @app.post("/api/register")
@@ -631,28 +633,6 @@ async def save_chat_logs(data: dict):
             status_code=500, 
             detail=f"채팅 로그를 저장하는 중 오류가 발생했습니다: {str(e)}"
         )
-
-
-
-@app.post("/api/login")
-async def api_login(login_data: LoginRequest, response: Response):
-    """로그인 API 엔드포인트"""
-    success, message = member_manager.login(login_data.username, login_data.password)
-    if success:
-        response = RedirectResponse(url="/chat", status_code=status.HTTP_303_SEE_OTHER)
-        response.set_cookie(
-            key="user_id",
-            value=login_data.username,
-            httponly=True,
-            max_age=3600,
-            samesite='lax',
-            secure=False
-        )
-        return response
-    return JSONResponse(
-        content={"message": message},
-        status_code=401
-    )
 
 @app.post("/api/register")
 async def api_register(register_data: RegisterRequest):
