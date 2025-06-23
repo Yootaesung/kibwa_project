@@ -158,7 +158,10 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 # ---------------------------
 from chatbot.member import MemberManager
 
-# S3MemberManager 인스턴스 생성
+# MongoDB 매니저 인스턴스 생성
+db_manager = MongoDBManager()
+
+# MemberManager 인스턴스 생성
 member_manager = MemberManager()
 
 def get_user_chat_log_path(username: str):
@@ -432,31 +435,6 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
         raise HTTPException(
             status_code=500,
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-        )
-
-# This function has been moved to line 429
-# @app.post("/api/register")
-# async def api_register(register_data: RegisterRequest):
-#     """회원가입 API 엔드포인트"""
-#     try:
-#         # 회원가입 처리 로직
-#         success, message = member_manager.register(
-#             register_data.username,
-#             register_data.password
-#         )
-#         
-#         if success:
-#             return {"message": "회원가입 성공"}
-#         else:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail=message
-#             )
-#     except Exception as e:
-#         logger.error(f"Error in api_register: {str(e)}")
-#         raise HTTPException(
-#             status_code=500,
-#             detail=f"서버에서 오류가 발생했습니다: {str(e)}"
         )
 
 @app.get("/api/test/scenarios")
