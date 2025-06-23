@@ -68,8 +68,17 @@ app.add_middleware(
 # 인증 미들웨어
 @app.middleware("http")
 async def verify_auth(request: Request, call_next):
-    # /login, /register, /api/login, /api/register, /test는 인증이 필요하지 않음
-    if request.url.path in ["/login", "/register", "/api/login", "/api/register", "/test", "/api/test/scenarios"]:
+    # 인증이 필요 없는 경로
+    no_auth_paths = [
+        "/login", 
+        "/register", 
+        "/api/login", 
+        "/api/register", 
+        "/test",
+        "/test/login",
+        "/api/test/scenarios"
+    ]
+    if request.url.path in no_auth_paths or request.url.path.startswith('/static/'):
         return await call_next(request)
     
     # 채팅 페이지나 API 요청일 때 인증 확인
@@ -220,7 +229,6 @@ def save_chat_message(username: str, role: str, content: str):
 class LoginRequest(BaseModel):
     username: str
     password: str
-    is_test: bool = False
 
 class RegisterRequest(BaseModel):
     username: str
@@ -379,9 +387,7 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
 @app.get("/test")
 async def test_page(request: Request):
     """테스트 페이지를 반환합니다."""
-    # 로그인되지 않은 사용자는 로그인 페이지로 리다이렉트
-    if not request.cookies.get("user_id"):
-        return RedirectResponse(url="/login")
+    # 인증 없이도 테스트 페이지 접근 가능
     return templates.TemplateResponse("test.html", {"request": request})
 
 @app.get("/register", response_class=HTMLResponse)
@@ -396,7 +402,6 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-@app.post("/api/test/login")
 async def api_login(login_data: LoginRequest, response: Response, request: Request):
     """로그인 API 엔드포인트"""
     try:
@@ -417,9 +422,17 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 성공 응답 반환 (리다이렉트는 프론트엔드에서 처리)
+            # 리다이렉트 처리
+            if request.url.path == "/api/login":
+                return RedirectResponse(url="/chat", status_code=status.HTTP_302_FOUND)
+            elif request.url.path == "/api/test/login":
+                return RedirectResponse(url="/test", status_code=status.HTTP_302_FOUND)
+            
             return JSONResponse(
-                content={"success": True},
+                content={
+                    "success": True,
+                    "redirect_url": "/chat" if request.url.path == "/api/login" else "/test"
+                },
                 status_code=200
             )
         else:
@@ -437,22 +450,10 @@ async def api_login(login_data: LoginRequest, response: Response, request: Reque
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
 
-@app.get("/api/test/login")
-async def test_login(request: Request):
-    """테스트 로그인 페이지"""
-    try:
-        return templates.TemplateResponse("login.html", {
-            "request": request,
-            "test_mode": True
-        })
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        logger.error(f"Error in test_login: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-        )
+@app.get("/test/login")
+async def test_login():
+    """테스트 페이지로 리다이렉트"""
+    return RedirectResponse(url="/test")
 
 @app.get("/api/test/scenarios")
 async def get_test_scenarios():

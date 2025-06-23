@@ -99,7 +99,7 @@
                 계정이 없으신가요? <a href="/register">회원가입</a>
             </div>
             <div class="test-link">
-                <a href="#" id="test-login-link">테스트 하기</a>
+                <a href="/test/login">테스트 하기</a>
             </div>
         </div>
     </div>
@@ -109,7 +109,7 @@
             return window.location.origin;
         }
 
-        async function handleLogin(e, isTest = false) {
+        async function handleLogin(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
@@ -120,71 +120,42 @@
             document.getElementById('password-error').textContent = '';
             
             try {
-                const endpoint = isTest ? '/api/test/login' : '/api/login';
-                const response = await fetch(`${getBaseUrl()}${endpoint}`, {
+                const response = await fetch(`${getBaseUrl()}/api/login`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'  // AJAX 요청임을 명시
                     },
                     credentials: 'include',
                     body: JSON.stringify({
                         username: username,
-                        password: password,
-                        is_test: isTest
+                        password: password
                     })
                 });
 
                 const data = await response.json();
-                
                 if (response.ok) {
-                    // 로그인 성공 시 리다이렉트
-                    const redirectUrl = isTest ? '/test' : '/chat';
-                    window.location.href = redirectUrl;
+                    // 서버에서 반환한 리다이렉트 URL로 이동
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        window.location.href = '/chat';
+                    }
                     return;
-                }
-
-                // 에러 메시지 표시
-                if (data.detail && data.detail.includes('존재하지')) {
-                    document.getElementById('username-error').textContent = data.detail;
-                } else if (data.detail) {
-                    document.getElementById('password-error').textContent = data.detail;
                 } else {
-                    document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                    // 에러 메시지 표시
+                    if (data.detail && data.detail.includes('존재하지')) {
+                        document.getElementById('username-error').textContent = data.detail;
+                    } else if (data.detail) {
+                        document.getElementById('password-error').textContent = data.detail;
+                    } else {
+                        document.getElementById('password-error').textContent = '로그인에 실패했습니다. 다시 시도해주세요.';
+                    }
                 }
             } catch (error) {
                 console.error('Login error:', error);
                 document.getElementById('password-error').textContent = '로그인 중 오류가 발생했습니다.';
             }
         }
-        
-        // 테스트 로그인 핸들러
-        async function handleTestLogin(e) {
-            e.preventDefault();
-            
-            // 테스트용 계정 정보
-            document.getElementById('username').value = 'test';
-            document.getElementById('password').value = 'test1234';
-            
-            // 로그인 시도
-            await handleLogin(e, true);
-        }
-        
-        // 테스트 링크에 이벤트 리스너 추가
-        document.addEventListener('DOMContentLoaded', function() {
-            const testLink = document.getElementById('test-login-link');
-            if (testLink) {
-                testLink.addEventListener('click', handleTestLogin);
-            }
-            
-            // 폼 제출 핸들러
-            const loginForm = document.getElementById('login-form');
-            if (loginForm) {
-                loginForm.addEventListener('submit', function(e) {
-                    handleLogin(e, false);
-                });
-            }
-        });
     </script>
 </body>
 </html>
