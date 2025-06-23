@@ -732,10 +732,8 @@
                     
                     if (data.scenarios && data.scenarios.length > 0) {
                         data.scenarios.forEach(scenario => {
-                            // 시나리오 키에서 prefix 제거 (frontend에서는 prefix 없이 표시)
-                            const relativeKey = scenario.key.replace(TEST_PREFIX, '');
                             const option = document.createElement('option');
-                            option.value = relativeKey;
+                            option.value = scenario.key;
                             option.textContent = scenario.name;
                             scenarioSelect.appendChild(option);
                         });

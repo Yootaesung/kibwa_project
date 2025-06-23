@@ -209,10 +209,6 @@ class S3Client:
     def get_scenario(self, scenario_key):
         """특정 시나리오를 가져옵니다."""
         try:
-            # 시나리오 키가 prefix로 시작하지 않는 경우 prefix를 추가
-            if not scenario_key.startswith(self.prefix):
-                scenario_key = f"{self.prefix}{scenario_key}"
-            
             # S3에서 파일 내용 가져오기
             content = self.get_file(scenario_key)
             return {"scenario": content}
@@ -226,7 +222,7 @@ class S3Client:
             # JSON 파일 목록 가져오기
             response = self.client.list_objects_v2(
                 Bucket=self.bucket,
-                Prefix=self.prefix,
+                Prefix=f"{self.prefix}test_scenarios/",
                 Delimiter='/'
             )
             
@@ -698,7 +694,7 @@ async def get_scenario(scenario_key: str):
         
         # 시나리오 키가 완전한 경로가 아닌 경우 경로 추가
         if not scenario_key.startswith(s3_client.prefix):
-            scenario_key = f"{s3_client.prefix}{scenario_key}"
+            scenario_key = f"{s3_client.prefix}test_scenarios/{scenario_key}"
         
         # 시나리오 가져오기
         scenario_data = s3_client.get_scenario(scenario_key)
