@@ -770,39 +770,48 @@
 
             // 채팅 메시지 추가 함수
             async function addMessage(role, content) {
-                const chatMessages = document.getElementById('chatMessages');
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${role}-message`;
-                
-                let emoji = '';
-                if (role === 'user') {
-                    emoji = '👤';
-                } else if (role === 'bot') {
-                    emoji = '🤖';
-                }
-                
-                messageDiv.innerHTML = `<span class="emoji">${emoji}</span> <span class="message-content">${content}</span>`;
-                
-                chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                
-                messageDiv.style.animation = 'fadeIn 0.3s ease-in-out';
-                
-                if (!isTestRunning) {
-                    try {
-                        await fetch('/api/save-message', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                role: role,
-                                content: content
-                            })
-                        });
-                    } catch (error) {
-                        console.error('메시지 저장 중 오류 발생:', error);
+                try {
+                    const chatContainer = document.getElementById('chatMessages') || document.getElementById('chatBox');
+                    if (!chatContainer) {
+                        console.error('채팅 컨테이너를 찾을 수 없습니다.');
+                        return;
                     }
+                    
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${role}-message`;
+                    
+                    let emoji = '';
+                    if (role === 'user') {
+                        emoji = '👤';
+                    } else if (role === 'bot') {
+                        emoji = '🤖';
+                    }
+                    
+                    messageDiv.innerHTML = `<span class="emoji">${emoji}</span> <span class="message-content">${content}</span>`;
+                    
+                    chatContainer.appendChild(messageDiv);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                    
+                    messageDiv.style.animation = 'fadeIn 0.3s ease-in-out';
+                    
+                    if (!isTestRunning) {
+                        try {
+                            await fetch('/api/save-message', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    role: role,
+                                    content: content
+                                })
+                            });
+                        } catch (error) {
+                            console.error('메시지 저장 중 오류 발생:', error);
+                        }
+                    }
+                } catch (error) {
+                    console.error('메시지 추가 중 오류 발생:', error);
                 }
             }
 
