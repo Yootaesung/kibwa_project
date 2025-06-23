@@ -674,7 +674,14 @@ async def get_test_scenarios():
                 logger.info("No test scenarios found in S3 bucket")
                 return {"scenarios": []}
             
-            return {"scenarios": scenarios}
+            # 시나리오 키에서 prefix 제거하여 올바른 키로 반환
+            return {"scenarios": [
+                {
+                    'key': scenario['key'].replace(s3_client.prefix, '', 1),
+                    'name': scenario['name']
+                }
+                for scenario in scenarios
+            ]}
             
         except Exception as e:
             logger.error(f"S3 operation failed: {str(e)}", exc_info=True)
