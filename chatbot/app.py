@@ -396,17 +396,9 @@ async def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 @app.post("/api/login")
-async def api_login(login_data: LoginRequest, response: Response):
-    """일반 로그인 API 엔드포인트"""
-    return await handle_login(login_data, response, is_test=False)
-
 @app.post("/api/test/login")
-async def api_test_login(login_data: LoginRequest, response: Response):
-    """테스트 로그인 API 엔드포인트"""
-    return await handle_login(login_data, response, is_test=True)
-
-async def handle_login(login_data: LoginRequest, response: Response, is_test: bool = False):
-    """로그인 처리 공통 함수"""
+async def api_login(login_data: LoginRequest, response: Response, request: Request):
+    """로그인 API 엔드포인트"""
     try:
         # 로그인 처리 로직
         success, message = member_manager.authenticate_user(
@@ -425,18 +417,11 @@ async def handle_login(login_data: LoginRequest, response: Response, is_test: bo
                 max_age=60 * 60 * 24 * 7  # 7일
             )
             
-            # 리다이렉트 URL 결정
-            redirect_url = "/test" if is_test else "/chat"
-            
-            # 항상 JSON 응답 반환 (프론트엔드에서 리다이렉션 처리)
+            # 성공 응답 반환 (리다이렉트는 프론트엔드에서 처리)
             return JSONResponse(
-                content={
-                    "success": True,
-                    "redirect_url": redirect_url
-                },
+                content={"success": True},
                 status_code=200
             )
-                
         else:
             logger.warning(f"로그인 실패: {login_data.username}")
             raise HTTPException(
@@ -446,7 +431,7 @@ async def handle_login(login_data: LoginRequest, response: Response, is_test: bo
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Error in handle_login: {str(e)}", exc_info=True)
+        logger.error(f"Error in api_login: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="서버에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
