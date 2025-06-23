@@ -152,21 +152,8 @@ class S3Client:
             self.prefix = CHATBOT_PREFIX
             self.client = chatbot_s3_client
     
-    def list_objects(self, prefix=''):
-        """S3 버킷에서 객체 목록 조회"""
-        try:
-            response = self.client.list_objects_v2(
-                Bucket=self.bucket,
-                Prefix=f"{self.prefix}{prefix}",
-                Delimiter='/'
-            )
-            return response.get('Contents', [])
-        except Exception as e:
-            logger.error(f"S3 list_objects_v2 error: {str(e)}")
-            raise Exception(f"S3 작업 중 오류가 발생했습니다: {str(e)}")
-    
-    def get_object(self, key):
-        """S3에서 객체 내용 가져오기"""
+    async def get_file(self, key):
+        """S3에서 파일을 가져옵니다."""
         try:
             response = self.client.get_object(
                 Bucket=self.bucket,
@@ -448,26 +435,38 @@ async def handle_chat_message(chat_request: ChatRequest, request: Request):
             return response
         
         # 실제 채팅 처리 로직
-        response = await chatbot.generate_response(
-            chat_request.message,
-            username=user_id,
-            chat_history=[]
+        chat_history = []
+        
+        # OpenAI API 호출
+        response = await openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "user", "content": chat_request.message}
+            ]
         )
+        
+        # 응답 처리
+        chat_response = response.choices[0].message.content
         
         # 채팅 기록 저장
         save_chat_message(user_id, "user", chat_request.message)
-        save_chat_message(user_id, "assistant", response)
+        save_chat_message(user_id, "assistant", chat_response)
         
-        return {"response": response, "emotion": "중립"}
+        return {
+            "response": chat_response,
+            "emotion": "중립"
+        }
         
     except Exception as e:
         logger.error(f"Error in handle_chat_message: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/chat")
+@app.post("/chat", include_in_schema=False)
 async def handle_chat(chat_request: ChatRequest, request: Request):
     """채팅 메시지를 처리합니다."""
     try:
-        return await handle_chat_message(chat_request, request)
+        response = await handle_chat_message(chat_request, request)
+        return JSONResponse(content=response)
     except Exception as e:
         logger.error(f"Error in handle_chat: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
