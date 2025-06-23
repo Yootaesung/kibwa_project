@@ -197,10 +197,24 @@ class S3Client:
                 Bucket=self.bucket,
                 Key=key
             )
-            return response['Body'].read().decode('utf-8')
+            content = response['Body'].read().decode('utf-8')
+            # JSON 파일인 경우 파싱하여 반환
+            if key.endswith('.json'):
+                return json.loads(content)
+            return content
         except Exception as e:
             logger.error(f"S3 get_object error: {str(e)}")
             raise Exception(f"S3에서 파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
+
+    def get_scenario(self, scenario_key):
+        """특정 시나리오를 가져옵니다."""
+        try:
+            # S3에서 파일 내용 가져오기
+            content = self.get_file(scenario_key)
+            return {"scenario": content}
+        except Exception as e:
+            logger.error(f"S3에서 시나리오를 가져오는 중 오류 발생: {str(e)}")
+            raise Exception(f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
 
     def list_scenarios(self):
         """S3에서 테스트 시나리오 목록을 가져옵니다."""
@@ -680,7 +694,7 @@ async def get_scenario(scenario_key: str):
         
         # 시나리오 키가 완전한 경로가 아닌 경우 경로 추가
         if not scenario_key.startswith(s3_client.prefix):
-            scenario_key = f"{s3_client.prefix}test_scenarios/{scenario_key}/"
+            scenario_key = f"{s3_client.prefix}{scenario_key}"
         
         # 시나리오 가져오기
         scenario_data = s3_client.get_scenario(scenario_key)
