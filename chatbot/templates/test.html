@@ -788,14 +788,7 @@
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${role}-message`;
                 
-                let emoji = '';
-                if (role === 'user') {
-                    emoji = '👤';
-                } else if (role === 'bot') {
-                    emoji = '🤖';
-                }
-                
-                messageDiv.innerHTML = `<span class="emoji">${emoji}</span> <span class="message-content">${content}</span>`;
+                messageDiv.innerHTML = `<span class="message-content">${content}</span>`;
                 
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
