@@ -1029,6 +1029,8 @@
 
             // 테스트 종료
             async function endTest() {
+                console.log('테스트 종료 함수 호출됨');
+                
                 // 테스트 중지
                 if (testInterval) {
                     clearInterval(testInterval);
@@ -1037,30 +1039,41 @@
                 
                 // 테스트 종료 상태로 변경
                 isTestRunning = false;
-                testControlBtn.textContent = '테스트 시작';
-                testControlBtn.classList.remove('btn-danger');
-                scenarioSelect.disabled = false;
                 
-                // 현재 메시지 인덱스만 초기화 (시나리오 선택은 유지)
-                currentMessageIndex = 0;
+                // UI 업데이트
+                if (testControlBtn) {
+                    testControlBtn.textContent = '테스트 시작';
+                    testControlBtn.classList.remove('btn-danger');
+                }
                 
-                // 채팅 내용은 유지 (초기화하지 않음)
+                // 시나리오 선택 드롭다운이 존재하는지 확인 후 활성화
+                const scenarioSelect = document.getElementById('scenario-select');
+                if (scenarioSelect) {
+                    scenarioSelect.disabled = false;
+                }
                 
-                // 마지막 감정 유지 (초기화하지 않음)
-                
-                statusDiv.textContent = '테스트가 종료되었습니다. 다시 시작하려면 [테스트 시작] 버튼을 누르세요.';
+                // 상태 메시지 업데이트
+                if (statusDiv) {
+                    statusDiv.textContent = '테스트가 종료되었습니다. 다시 시작하려면 [테스트 시작] 버튼을 누르세요.';
+                }
                 
                 // 시나리오 선택이 변경되면 상태 메시지 초기화
                 const resetStatus = () => {
-                    statusDiv.textContent = '테스트를 시작하려면 [테스트 시작] 버튼을 누르세요.';
-                    scenarioSelect.removeEventListener('change', resetStatus);
+                    if (statusDiv) {
+                        statusDiv.textContent = '테스트를 시작하려면 [테스트 시작] 버튼을 누르세요.';
+                    }
+                    if (scenarioSelect) {
+                        scenarioSelect.removeEventListener('change', resetStatus);
+                    }
                 };
-                scenarioSelect.addEventListener('change', resetStatus);
                 
-                try {
-                    // 채팅 로그 저장
-                    if (currentScenario) {
-                        // 채팅 메시지 수집
+                if (scenarioSelect) {
+                    scenarioSelect.addEventListener('change', resetStatus);
+                }
+                
+                // 채팅 로그 수집 (콘솔에만 출력)
+                if (currentScenario) {
+                    try {
                         const messages = [];
                         const messageElements = document.querySelectorAll('.message');
                         
@@ -1068,77 +1081,45 @@
                             const role = el.classList.contains('user-message') ? 'user' : 'bot';
                             const content = el.textContent.trim();
                             
-                            // 사용자 메시지일 경우에만 감정 정보 추가
                             if (role === 'user') {
-                                // 현재 메시지의 감정 가져오기 (시나리오에 정의된 감정 사용)
                                 let emotion = '중립';
-                                
-                                // 현재 메시지의 인덱스 찾기
                                 const messageIndex = Array.from(messageElements).indexOf(el);
-                                const userMessageIndex = Math.floor(messageIndex / 2); // 사용자 메시지의 인덱스 (0부터 시작)
+                                const userMessageIndex = Math.floor(messageIndex / 2);
                                 
-                                    // 시나리오에서 해당 메시지의 감정 가져오기
                                 if (currentScenario.messages && currentScenario.messages[userMessageIndex]) {
                                     emotion = currentScenario.messages[userMessageIndex].emotion || '중립';
                                 }
                                 
-                                messages.push({
-                                    role,
-                                    content,
-                                    emotion
-                                });
+                                messages.push({ role, content, emotion });
                             } else {
-                                messages.push({
-                                    role,
-                                    content
-                                });
+                                messages.push({ role, content });
                             }
                         });
                         
-                        // 서버에 채팅 로그 저장
-                        try {
-                            // Update emotion counts from UI counters before saving
-                            const updatedEmotionCounts = {
-                                '기쁨': parseInt(document.getElementById('joy-counter').textContent) || 0,
-                                '분노': parseInt(document.getElementById('anger-counter').textContent) || 0,
-                                '슬픔': parseInt(document.getElementById('sadness-counter').textContent) || 0,
-                                '두려움': parseInt(document.getElementById('fear-counter').textContent) || 0,
-                                '놀람': parseInt(document.getElementById('surprise-counter').textContent) || 0,
-                                '혐오': parseInt(document.getElementById('disgust-counter').textContent) || 0
-                            };
-                            
-                            const response = await fetch('/api/save-chat-log', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    scenarioId: currentScenario.id,
-                                    messages: messages,
-                                    emotionCounts: updatedEmotionCounts
-                                })
-                            });
-                            
-                            if (!response.ok) {
-                                throw new Error('채팅 로그 저장 실패');
-                            }
-                            
-                            console.log('테스트가 완료되었습니다. 채팅 로그가 저장되었습니다.');
-                        } catch (error) {
-                            console.error('채팅 로그 저장 중 오류:', error);
-                        }
+                        // 감정 카운터 값 가져오기
+                        const updatedEmotionCounts = {
+                            '기쁨': parseInt(document.getElementById('joy-counter')?.textContent) || 0,
+                            '분노': parseInt(document.getElementById('anger-counter')?.textContent) || 0,
+                            '슬픔': parseInt(document.getElementById('sadness-counter')?.textContent) || 0,
+                            '두려움': parseInt(document.getElementById('fear-counter')?.textContent) || 0,
+                            '놀람': parseInt(document.getElementById('surprise-counter')?.textContent) || 0,
+                            '혐오': parseInt(document.getElementById('disgust-counter')?.textContent) || 0
+                        };
+                        
+                        console.log('테스트 완료 - 채팅 로그:', {
+                            scenarioId: currentScenario.id,
+                            messages: messages,
+                            emotionCounts: updatedEmotionCounts
+                        });
+                        
+                    } catch (error) {
+                        console.error('채팅 로그 처리 중 오류:', error);
                     }
-                } catch (error) {
-                    console.error('채팅 로그 저장 중 오류:', error);
                 }
                 
-                // 테스트 상태 초기화
-                currentScenario = null;
-                currentMessage = null;
-                currentMessageIndex = 0;
-                testStartTime = null;
+                // 채팅창은 그대로 유지 (초기화하지 않음)
                 
-                // 감정 카운터 초기화 (UI만)
+                // 감정 카운터 UI만 초기화 (데이터는 유지)
                 const emotionMap = {
                     '기쁨': 'joy-counter',
                     '분노': 'anger-counter',
@@ -1158,12 +1139,6 @@
                         }
                     }
                 });
-                
-                // 채팅창 초기화
-                chatBox.innerHTML = '';
-                
-                // 시나리오 선택창 활성화
-                document.getElementById('scenarioSelect').disabled = false;
             }
 
             // 감정 분석 토글 버튼
