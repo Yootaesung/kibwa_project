@@ -768,50 +768,55 @@
                 }
             }
 
+            // 감정 카운터 초기화
+            let emotionCounts = {
+                '기쁨': 0,
+                '분노': 0,
+                '슬픔': 0,
+                '두려움': 0,
+                '놀람': 0,
+                '혐오': 0
+            };
+
             // 채팅 메시지 추가 함수
             async function addMessage(role, content) {
-                try {
-                    const chatContainer = document.getElementById('chatMessages') || document.getElementById('chatBox');
-                    if (!chatContainer) {
-                        console.error('채팅 컨테이너를 찾을 수 없습니다.');
-                        return;
+                const chatMessages = document.getElementById('chat-box');
+                if (!chatMessages) {
+                    console.error('채팅 컨테이너를 찾을 수 없습니다.');
+                    return;
+                }
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}-message`;
+                
+                let emoji = '';
+                if (role === 'user') {
+                    emoji = '👤';
+                } else if (role === 'bot') {
+                    emoji = '🤖';
+                }
+                
+                messageDiv.innerHTML = `<span class="emoji">${emoji}</span> <span class="message-content">${content}</span>`;
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                messageDiv.style.animation = 'fadeIn 0.3s ease-in-out';
+                
+                if (!isTestRunning) {
+                    try {
+                        await fetch('/api/save-message', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                role: role,
+                                content: content
+                            })
+                        });
+                    } catch (error) {
+                        console.error('메시지 저장 중 오류 발생:', error);
                     }
-                    
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `message ${role}-message`;
-                    
-                    let emoji = '';
-                    if (role === 'user') {
-                        emoji = '👤';
-                    } else if (role === 'bot') {
-                        emoji = '🤖';
-                    }
-                    
-                    messageDiv.innerHTML = `<span class="emoji">${emoji}</span> <span class="message-content">${content}</span>`;
-                    
-                    chatContainer.appendChild(messageDiv);
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                    
-                    messageDiv.style.animation = 'fadeIn 0.3s ease-in-out';
-                    
-                    if (!isTestRunning) {
-                        try {
-                            await fetch('/api/save-message', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                    role: role,
-                                    content: content
-                                })
-                            });
-                        } catch (error) {
-                            console.error('메시지 저장 중 오류 발생:', error);
-                        }
-                    }
-                } catch (error) {
-                    console.error('메시지 추가 중 오류 발생:', error);
                 }
             }
 
@@ -1092,6 +1097,16 @@
                         
                         // 서버에 채팅 로그 저장
                         try {
+                            // Update emotion counts from UI counters before saving
+                            const updatedEmotionCounts = {
+                                '기쁨': parseInt(document.getElementById('joy-counter').textContent) || 0,
+                                '분노': parseInt(document.getElementById('anger-counter').textContent) || 0,
+                                '슬픔': parseInt(document.getElementById('sadness-counter').textContent) || 0,
+                                '두려움': parseInt(document.getElementById('fear-counter').textContent) || 0,
+                                '놀람': parseInt(document.getElementById('surprise-counter').textContent) || 0,
+                                '혐오': parseInt(document.getElementById('disgust-counter').textContent) || 0
+                            };
+                            
                             const response = await fetch('/api/save-chat-log', {
                                 method: 'POST',
                                 headers: {
@@ -1100,7 +1115,7 @@
                                 body: JSON.stringify({
                                     scenarioId: currentScenario.id,
                                     messages: messages,
-                                    emotionCounts: {...emotionCounts}
+                                    emotionCounts: updatedEmotionCounts
                                 })
                             });
                             
@@ -1124,11 +1139,23 @@
                 testStartTime = null;
                 
                 // 감정 카운터 초기화 (UI만)
+                const emotionMap = {
+                    '기쁨': 'joy-counter',
+                    '분노': 'anger-counter',
+                    '슬픔': 'sadness-counter',
+                    '두려움': 'fear-counter',
+                    '놀람': 'surprise-counter',
+                    '혐오': 'disgust-counter'
+                };
+                
                 Object.keys(emotionCounts).forEach(emotion => {
                     emotionCounts[emotion] = 0;
-                    const counter = document.getElementById(`${emotion}Count`);
-                    if (counter) {
-                        counter.textContent = '0';
+                    const counterId = emotionMap[emotion];
+                    if (counterId) {
+                        const counter = document.getElementById(counterId);
+                        if (counter) {
+                            counter.textContent = '0';
+                        }
                     }
                 });
                 
