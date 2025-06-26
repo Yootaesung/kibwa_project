@@ -241,41 +241,6 @@ class S3Client:
             logger.error(f"S3에서 시나리오를 가져오는 중 오류 발생: {str(e)}")
             raise Exception(f"시나리오를 가져오는 중 오류가 발생했습니다: {str(e)}")
 
-    def load_emotion_keywords(self):
-        """감정 키워드를 로드합니다."""
-        try:
-            # S3에서 JSON 파일 로드
-            s3 = boto3.client('s3',
-                            aws_access_key_id=os.getenv('KIBWA05_ACCESS_KEY_ID'),
-                            aws_secret_access_key=os.getenv('KIBWA05_SECRET_ACCESS_KEY'),
-                            region_name=os.getenv('KIBWA05_DEFAULT_REGION'))
-            
-            # 감정 데이터 로드
-            emotion_response = s3.get_object(
-                Bucket='kibwa05-emotion-data',
-                Key='emotion_keywords.json'
-            )
-            emotion_data = json.loads(emotion_response['Body'].read().decode('utf-8'))
-            
-            # 비속어 필터 데이터 로드
-            profanity_response = s3.get_object(
-                Bucket='kibwa05-profanity-data',
-                Key='profanity_keywords.json'
-            )
-            profanity_data = json.loads(profanity_response['Body'].read().decode('utf-8'))
-            
-            # 감정 키워드 업데이트 (혐오 제외)
-            allowed_emotions = ["기쁨", "분노", "슬픔", "두려움", "놀람"]
-            self.emotion_keywords = {k: v for k, v in emotion_data.items() if k in allowed_emotions}
-            
-            # 비속어 필터 업데이트
-            self.profanity_keywords = profanity_data
-            
-            logger.info("감정 키워드와 비속어 필터가 성공적으로 로드되었습니다.")
-        except Exception as e:
-            logger.error(f"감정 키워드 로드 실패: {str(e)}")
-            raise Exception(f"감정 키워드 로드 중 오류가 발생했습니다: {str(e)}")
-    
     def list_scenarios(self):
         """S3에서 테스트 시나리오 목록을 가져옵니다."""
         try:
@@ -445,13 +410,7 @@ class SimpleChatbot:
             "5. 대답은 1-2문장으로 짧게 유지하세요.\n"
             "6. 영어 단어나 문장을 절대 사용하지 마세요.\n"
         )
-        self.emotion_keywords = {
-            "기쁨": [],
-            "분노": [],
-            "슬픔": [],
-            "두려움": [],
-            "놀람": []
-        }
+        self.emotion_keywords = {}
 
     def load_emotion_keywords(self):
         try:
