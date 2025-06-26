@@ -49,9 +49,22 @@
             margin: 0 auto;
         }
         
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .header-title {
+            flex-grow: 1;
+            text-align: center;
+            margin: 0;
+        }
+        
         .header-buttons {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
         }
         
@@ -60,22 +73,32 @@
             text-decoration: none;
             display: flex;
             align-items: center;
-            font-size: 1em;
-            padding: 8px 12px;
-            border-radius: 4px;
-            transition: background-color 0.2s;
+            font-size: 0.95em;
+            padding: 8px 15px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        .home-btn:hover, .report-btn:hover {
+        .home-btn {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .home-btn:hover {
             background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
         }
         
         .report-btn {
             background-color: #4CAF50;
+            border: 1px solid #45a049;
         }
         
         .report-btn:hover {
             background-color: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
         .home-btn:hover {
@@ -562,14 +585,15 @@
     <div class="chat-container">
         <div class="chat-header">
             <div class="header-content">
-                <h1>시나리오 테스트</h1>
+                <a href="http://13.238.128.251:3000/" class="home-btn" title="홈으로">
+                    <span class="material-icons" style="font-size: 18px; margin-right: 5px;">home</span>
+                    <span>홈</span>
+                </a>
+                <h1 class="header-title">시나리오 테스트</h1>
                 <div class="header-buttons">
-                    <a href="http://13.238.128.251:8503/" class="home-btn report-btn" title="Report" target="_blank">
-                        <span class="material-icons">assessment</span>
+                    <a href="http://13.238.128.251:8503/" class="report-btn" title="Report" target="_blank">
+                        <span class="material-icons" style="font-size: 18px; margin-right: 5px;">assessment</span>
                         <span>Report</span>
-                    </a>
-                    <a href="http://13.238.128.251:3000/" class="home-btn" title="홈으로">
-                        <span class="material-icons">home</span>
                     </a>
                 </div>
             </div>
