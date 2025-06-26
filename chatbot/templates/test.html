@@ -43,7 +43,6 @@
         
         .header-content {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             width: 100%;
             max-width: 1200px;
@@ -73,6 +72,23 @@
             padding: 8px 16px;
             border-radius: 8px;
             transition: background-color 0.3s ease;
+            flex-shrink: 0;
+        }
+        
+        .left-section {
+            flex: 0 0 auto;
+            margin-right: 20px;
+        }
+        
+        .center-section {
+            flex: 1;
+            text-align: center;
+            margin: 0 20px;
+        }
+        
+        .right-section {
+            flex: 0 0 auto;
+            margin-left: 20px;
         }
         
         .report-btn {
