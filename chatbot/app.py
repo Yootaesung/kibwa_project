@@ -274,7 +274,7 @@ class S3Client:
             logger.info("감정 키워드와 비속어 필터가 성공적으로 로드되었습니다.")
         except Exception as e:
             logger.error(f"감정 키워드 로드 실패: {str(e)}")
-            raise Exception("감정 키워드 로드 중 오류가 발생했습니다."): {str(e)}")
+            raise Exception(f"감정 키워드 로드 중 오류가 발생했습니다: {str(e)}")
     
     def list_scenarios(self):
         """S3에서 테스트 시나리오 목록을 가져옵니다."""
