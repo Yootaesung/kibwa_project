@@ -143,7 +143,7 @@ app.mount("/emotion_data", StaticFiles(directory="emotion_data"), name="emotion_
 
 # S3 버킷 설정
 TEST_BUCKET = 'kibwa-12'
-TEST_PREFIX = 'project/'
+TEST_PREFIX = 'dummy/'
 CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
@@ -211,28 +211,28 @@ class S3Client:
             # JSON 문자열 파싱
             try:
                 data = json.loads(content)
-                if not isinstance(data, list):
-                    raise ValueError("JSON 데이터가 배열이 아닙니다")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON 데이터가 딕셔너리가 아닙니다")
             except json.JSONDecodeError as e:
                 logger.error(f"JSON 파싱 오류: {str(e)}")
                 logger.error(f"파일 내용: {content}")
                 raise Exception(f"JSON 파일을 파싱하는 중 오류가 발생했습니다: {str(e)}")
             
-            # JSON 데이터를 messages 배열로 변환
+            # 대화 내용을 messages 배열로 변환
             messages = []
-            for item in data:
+            for item in data.get('conversation', []):
                 if not isinstance(item, dict):
                     logger.error(f"Invalid item format: {item}")
                     continue
-                
-                if 'content' not in item or 'emotion' not in item:
+                    
+                if 'content' not in item or 'emotions' not in item:
                     logger.error(f"Missing required fields in item: {item}")
                     continue
-                
+                    
                 messages.append({
-                    'role': 'user',
+                    'role': 'user' if item['speaker'] == 'Winter' else 'assistant',
                     'content': item['content'],
-                    'emotion': item['emotion']
+                    'emotion': item['emotions'][0] if item['emotions'] else None
                 })
             
             return {"scenario": {"messages": messages}}
