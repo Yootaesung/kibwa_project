@@ -143,7 +143,7 @@ app.mount("/emotion_data", StaticFiles(directory="emotion_data"), name="emotion_
 
 # S3 버킷 설정
 TEST_BUCKET = 'kibwa-12'
-TEST_PREFIX = 'project/'
+TEST_PREFIX = 'dummy/'
 CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
@@ -671,51 +671,102 @@ async def get_test_scenarios():
             s3_client = S3Client(bucket_type='test')
             logger.info(f"S3 client initialized with bucket: {s3_client.bucket}, prefix: {s3_client.prefix}")
             
-            scenarios = s3_client.list_scenarios()
-            logger.info(f"Retrieved {len(scenarios)} scenarios from S3")
-            
-            # 시나리오가 없는 경우 빈 배열 반환
-            if not scenarios:
-                logger.info("No test scenarios found in S3 bucket")
-                return {"scenarios": []}
-            
-            # 시나리오 키에서 prefix 제거하여 올바른 키로 반환
-            return {"scenarios": [
-                {
-                    'key': scenario['key'].replace(s3_client.prefix, '', 1),
-                    'name': scenario['name']
-                }
-                for scenario in scenarios
-            ]}
-            
+            # 프리픽스가 있는 경우
+            if s3_client.prefix:
+                response = s3_client.client.list_objects_v2(
+                    Bucket=s3_client.bucket,
+                    Prefix=s3_client.prefix
+                )
+            else:
+                response = s3_client.client.list_objects_v2(
+                    Bucket=s3_client.bucket
+                )
+
+            if 'Contents' not in response:
+                logger.info("No objects found in S3 bucket")
+                return JSONResponse(
+                    content={"detail": "테스트 시나리오가 없습니다."},
+                    status_code=404
+                )
+
+            # 각 객체의 키를 시나리오 이름으로 사용
+            scenarios = []
+            for obj in response['Contents']:
+                key = obj['Key']
+                # 프리픽스가 있는 경우 제거
+                if s3_client.prefix and key.startswith(s3_client.prefix):
+                    key = key[len(s3_client.prefix):]
+                scenarios.append({
+                    "key": key,
+                    "name": key
+                })
+
+            logger.info(f"Found {len(scenarios)} test scenarios")
+            return JSONResponse(content={"scenarios": scenarios})
+
         except Exception as e:
-            logger.error(f"S3 operation failed: {str(e)}", exc_info=True)
-            raise HTTPException(
-                status_code=500,
-                detail=f"S3 작업 중 오류가 발생했습니다: {str(e)}"
+            logger.error(f"Error fetching test scenarios: {str(e)}")
+            error_response = JSONResponse(
+                content={"detail": f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"}
             )
-        
-    except HTTPException as he:
-        logger.error(f"HTTP error in get_test_scenarios: {str(he.detail)}")
-        error_response = JSONResponse(
-            status_code=he.status_code,
-            content={"detail": str(he.detail)}
-        )
-        error_response.headers["Access-Control-Allow-Origin"] = "*"
-        error_response.headers["Access-Control-Allow-Credentials"] = "true"
-        raise he
-    except Exception as e:
-        logger.error(f"Unexpected error in get_test_scenarios: {str(e)}", exc_info=True)
-        error_response = JSONResponse(
-            status_code=500,
-            content={"detail": f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"}
-        )
-        error_response.headers["Access-Control-Allow-Origin"] = "*"
-        error_response.headers["Access-Control-Allow-Credentials"] = "true"
-        raise HTTPException(
-            status_code=500, 
-            detail=f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"
-        )
+            error_response.headers["Access-Control-Allow-Origin"] = "*"
+            error_response.headers["Access-Control-Allow-Credentials"] = "true"
+            raise HTTPException(
+                status_code=500, 
+                detail=f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"
+            )
+
+    async def get_conversation_by_date(date: str):
+        """특정 날짜의 대화 데이터를 가져옵니다."""
+        try:
+            logger.info(f"Fetching conversation data for date: {date}")
+            
+            s3_client = S3Client(bucket_type='test')
+            
+            # 날짜별 대화 파일 경로
+            key = f"dummy/{date}.json"
+            
+            try:
+                response = s3_client.client.get_object(
+                    Bucket=s3_client.bucket,
+                    Key=key
+                )
+                conversation_data = json.loads(response['Body'].read().decode('utf-8'))
+                
+                # Winter의 메시지만 추출
+                winter_messages = []
+                for message in conversation_data["conversation"]:
+                    if message["speaker"] == conversation_data["person_name"]:
+                        winter_messages.append({
+                            "content": message["content"],
+                            "emotions": message["emotions"]
+                        })
+                
+                return JSONResponse(content={
+                    "date": date,
+                    "messages": winter_messages,
+                    "total_messages": len(winter_messages)
+                })
+                
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'NoSuchKey':
+                    return JSONResponse(
+                        content={"detail": f"날짜 {date}의 대화 데이터가 없습니다."},
+                        status_code=404
+                    )
+                raise
+                
+        except Exception as e:
+            logger.error(f"Error fetching conversation data: {str(e)}")
+            error_response = JSONResponse(
+                content={"detail": f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"}
+            )
+            error_response.headers["Access-Control-Allow-Origin"] = "*"
+            error_response.headers["Access-Control-Allow-Credentials"] = "true"
+            raise HTTPException(
+                status_code=500, 
+                detail=f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"
+            )
 
 @app.get("/api/test/scenario/{scenario_key}")
 async def get_scenario(scenario_key: str):
