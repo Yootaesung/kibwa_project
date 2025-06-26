@@ -518,6 +518,43 @@
             padding: 0 10px;
         }
 
+        .timestamp-group {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+
+        .timestamp-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .timestamp-toggle:hover {
+            background: #f5f5f5;
+        }
+
+        .timestamp-toggle .material-icons {
+            transition: transform 0.3s ease;
+        }
+
+        .timestamp-toggle:not(.collapsed) .material-icons {
+            transform: rotate(180deg);
+        }
+
+        .emotion-counters {
+            display: none;
+            padding: 12px;
+        }
+
+        .emotion-counters.visible {
+            display: block;
+        }
+
         .scenario-list {
             margin: 15px 0;
             padding: 0;
@@ -635,29 +672,97 @@
             window.location.href = '/login';
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // DOM 요소 가져오기
-            const scenarioSelect = document.getElementById('scenario-select');
-            const startBtn = document.getElementById('start-test');
-            const chatBox = document.getElementById('chat-box');
-            const statusDiv = document.getElementById('status');
-            const testContent = document.querySelector('.test-content');
-            
-            // 테스트 상태 변수
-            let currentScenario = null;
-            let currentMessageIndex = 0;
-            let testStartTime;
-            let testEndTime;
-            let currentMessage = null; // 현재 메시지 저장을 위한 전역 변수
-            let emotionScores = {
-                '기쁨': 0,
-                '분노': 0,
-                '슬픔': 0,
-                '두려움': 0,
-                '놀람': 0
-            };
-            let testInterval = null;
-            let isTestRunning = false;
+            document.addEventListener('DOMContentLoaded', function() {
+                // DOM 요소 가져오기
+                const scenarioSelect = document.getElementById('scenario-select');
+                const startBtn = document.getElementById('start-test');
+                const chatBox = document.getElementById('chat-box');
+                const statusDiv = document.getElementById('status');
+                const testContent = document.querySelector('.test-content');
+                const timestampGroups = document.querySelector('.timestamp-groups');
+                
+                // 테스트 상태 변수
+                let currentScenario = null;
+                let currentMessageIndex = 0;
+                let testStartTime;
+                let testEndTime;
+                let currentMessage = null; // 현재 메시지 저장을 위한 전역 변수
+                let emotionScores = {
+                    '기쁨': 0,
+                    '분노': 0,
+                    '슬픔': 0,
+                    '두려움': 0,
+                    '놀람': 0
+                };
+                let testInterval = null;
+                let isTestRunning = false;
+                
+                // timestamp별 감정 카운터 생성 함수
+                function createTimestampCounters(timestamps) {
+                    timestampGroups.innerHTML = '';
+                    
+                    timestamps.forEach(timestamp => {
+                        const timestampGroup = document.createElement('div');
+                        timestampGroup.className = 'timestamp-group';
+                        
+                        // 토글 버튼
+                        const toggleBtn = document.createElement('button');
+                        toggleBtn.className = 'timestamp-toggle collapsed';
+                        toggleBtn.innerHTML = `
+                            <span class="material-icons">expand_more</span>
+                            ${timestamp}
+                        `;
+                        
+                        // 감정 카운터
+                        const counters = document.createElement('div');
+                        counters.className = 'emotion-counters';
+                        counters.innerHTML = `
+                            <div class="emotion-counter">😊 기쁨: <span>0</span></div>
+                            <div class="emotion-counter">😠 분노: <span>0</span></div>
+                            <div class="emotion-counter">😢 슬픔: <span>0</span></div>
+                            <div class="emotion-counter">😨 두려움: <span>0</span></div>
+                            <div class="emotion-counter">😲 놀람: <span>0</span></div>
+                        `;
+                        
+                        timestampGroup.appendChild(toggleBtn);
+                        timestampGroup.appendChild(counters);
+                        timestampGroups.appendChild(timestampGroup);
+                        
+                        // 토글 이벤트
+                        toggleBtn.addEventListener('click', function() {
+                            const group = this.parentElement.querySelector('.emotion-counters');
+                            if (group.style.display === 'none') {
+                                group.style.display = 'block';
+                                this.classList.remove('collapsed');
+                            } else {
+                                group.style.display = 'none';
+                                this.classList.add('collapsed');
+                            }
+                        });
+                    });
+                }
+                
+                // timestamp별 감정 카운팅 업데이트
+                function updateTimestampCounters(conversation) {
+                    const timestamps = [...new Set(conversation.map(conv => conv.timestamp))];
+                    createTimestampCounters(timestamps);
+                    
+                    conversation.forEach(conv => {
+                        const timestamp = conv.timestamp;
+                        const group = timestampGroups.querySelector(`.timestamp-group:has(button:contains('${timestamp}'))`);
+                        if (group) {
+                            const counters = group.querySelector('.emotion-counters');
+                            const emotion = conv.emotions[0];
+                            
+                            if (emotion) {
+                                const counter = counters.querySelector(`.emotion-counter:has(span:contains('${emotion}')) span`);
+                                if (counter) {
+                                    counter.textContent = parseInt(counter.textContent) + 1;
+                                }
+                            }
+                        }
+                    });
+                }
             
             // 감정별 색상 및 이모티콘
             const emotionColors = {
