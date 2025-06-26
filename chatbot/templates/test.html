@@ -853,14 +853,6 @@
                     const loadingElement = document.getElementById('loading');
                     if (loadingElement) {
                         loadingElement.style.display = 'none';
-                    }
-
-                } catch (error) {
-                    console.error('대화 데이터를 불러오는 중 오류 발생:', error);
-                    alert('대화 데이터를 불러오는 중 오류가 발생했습니다.');
-                }
-            }
-
             // 날짜별 감정 카운터 초기화
             let dailyEmotionCounts = {
                 '2025-06-01': {
@@ -913,6 +905,11 @@
                     '놀람': 0
                 }
             };
+
+            // 섹션 생성은 테스트 시작 시점에만 수행
+            function createSections() {
+                Object.keys(dailyEmotionCounts).forEach(createDailySection);
+            }
 
             // 채팅 메시지 추가 함수
             async function addMessage(role, content) {
@@ -1139,6 +1136,10 @@
                     
                     console.log('Loaded scenario:', currentScenario);  // 디버깅용 로그
                     testContent.style.display = 'block';
+                    
+                    // 섹션 생성 및 데이터 불러오기
+                    createSections();
+                    await loadDailyConversations();
                     
                     // 현재 감정 초기화
                     const emotionElement = document.getElementById('current-emotion');
