@@ -729,11 +729,36 @@
                         timestampGroups.appendChild(timestampGroup);
                         
                         // 토글 이벤트
-                        toggleBtn.addEventListener('click', function() {
+                        toggleBtn.addEventListener('click', async function() {
                             const group = this.parentElement.querySelector('.emotion-counters');
                             if (group.style.display === 'none') {
                                 group.style.display = 'block';
-                                this.classList.remove('collapsed');
+                                const response = await fetch(`/api/test/scenarios/${scenarioSelect.value}`);
+                                if (!response.ok) {
+                                    throw new Error('시나리오를 가져오는 중 오류가 발생했습니다.');
+                                }
+                                
+                                const scenarioData = await response.json();
+                                
+                                // timestamp별 감정 카운팅 업데이트
+                                if (scenarioData.scenario && scenarioData.scenario.messages) {
+                                    // 새로운 JSON 구조에 맞게 데이터 변환
+                                    const conversations = [];
+                                    scenarioData.scenario.messages.forEach(message => {
+                                        if (message.emotion) {
+                                            conversations.push({
+                                                timestamp: '2025-06-01', // 기본값으로 설정
+                                                speaker: message.role === 'user' ? 'Winter' : 'Chatbot',
+                                                content: message.content,
+                                                emotions: [message.emotion]
+                                            });
+                                        }
+                                    });
+                                    
+                                    updateTimestampCounters({ conversation: conversations });
+                                } else {
+                                    throw new Error('올바른 시나리오 데이터 형식이 아닙니다.');
+                                }
                             } else {
                                 group.style.display = 'none';
                                 this.classList.add('collapsed');
