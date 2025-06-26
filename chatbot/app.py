@@ -716,57 +716,58 @@ async def get_test_scenarios():
                 detail=f"테스트 시나리오 목록을 불러오는 중 예상치 못한 오류가 발생했습니다: {str(e)}"
             )
 
-    async def get_conversation_by_date(date: str):
-        """특정 날짜의 대화 데이터를 가져옵니다."""
+@app.get("/api/test/conversation/{date}")
+async def get_conversation_by_date(date: str):
+    """특정 날짜의 대화 데이터를 가져옵니다."""
+    try:
+        logger.info(f"Fetching conversation data for date: {date}")
+        
+        s3_client = S3Client(bucket_type='test')
+        
+        # 날짜별 대화 파일 경로
+        key = f"dummy/{date}.json"
+        
         try:
-            logger.info(f"Fetching conversation data for date: {date}")
+            response = s3_client.client.get_object(
+                Bucket=s3_client.bucket,
+                Key=key
+            )
+            conversation_data = json.loads(response['Body'].read().decode('utf-8'))
             
-            s3_client = S3Client(bucket_type='test')
+            # Winter의 메시지만 추출
+            winter_messages = []
+            for message in conversation_data["conversation"]:
+                if message["speaker"] == conversation_data["person_name"]:
+                    winter_messages.append({
+                        "content": message["content"],
+                        "emotions": message["emotions"]
+                    })
             
-            # 날짜별 대화 파일 경로
-            key = f"dummy/{date}.json"
+            return JSONResponse(content={
+                "date": date,
+                "messages": winter_messages,
+                "total_messages": len(winter_messages)
+            })
             
-            try:
-                response = s3_client.client.get_object(
-                    Bucket=s3_client.bucket,
-                    Key=key
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                return JSONResponse(
+                    content={"detail": f"날짜 {date}의 대화 데이터가 없습니다."},
+                    status_code=404
                 )
-                conversation_data = json.loads(response['Body'].read().decode('utf-8'))
-                
-                # Winter의 메시지만 추출
-                winter_messages = []
-                for message in conversation_data["conversation"]:
-                    if message["speaker"] == conversation_data["person_name"]:
-                        winter_messages.append({
-                            "content": message["content"],
-                            "emotions": message["emotions"]
-                        })
-                
-                return JSONResponse(content={
-                    "date": date,
-                    "messages": winter_messages,
-                    "total_messages": len(winter_messages)
-                })
-                
-            except botocore.exceptions.ClientError as e:
-                if e.response['Error']['Code'] == 'NoSuchKey':
-                    return JSONResponse(
-                        content={"detail": f"날짜 {date}의 대화 데이터가 없습니다."},
-                        status_code=404
-                    )
-                raise
-                
-        except Exception as e:
-            logger.error(f"Error fetching conversation data: {str(e)}")
-            error_response = JSONResponse(
-                content={"detail": f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"}
-            )
-            error_response.headers["Access-Control-Allow-Origin"] = "*"
-            error_response.headers["Access-Control-Allow-Credentials"] = "true"
-            raise HTTPException(
-                status_code=500, 
-                detail=f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"
-            )
+            raise
+            
+    except Exception as e:
+        logger.error(f"Error fetching conversation data: {str(e)}")
+        error_response = JSONResponse(
+            content={"detail": f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"}
+        )
+        error_response.headers["Access-Control-Allow-Origin"] = "*"
+        error_response.headers["Access-Control-Allow-Credentials"] = "true"
+        raise HTTPException(
+            status_code=500, 
+            detail=f"대화 데이터를 불러오는 중 오류가 발생했습니다: {str(e)}"
+        )
 
 @app.get("/api/test/scenario/{scenario_key}")
 async def get_scenario(scenario_key: str):
