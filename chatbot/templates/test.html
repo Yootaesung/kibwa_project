@@ -622,7 +622,6 @@
                             <div class="emotion-counter">😢 슬픔: <span id="sadness-counter">0</span></div>
                             <div class="emotion-counter">😨 두려움: <span id="fear-counter">0</span></div>
                             <div class="emotion-counter">😲 놀람: <span id="surprise-counter">0</span></div>
-                            <div class="emotion-counter">🤢 혐오: <span id="disgust-counter">0</span></div>
                         </div>
                     </div>
                     
@@ -655,8 +654,8 @@
             let currentMessage = null; // 현재 메시지 저장을 위한 전역 변수
             let emotionScores = {
                 '기쁨': 0,
-                '슬픔': 0,
                 '분노': 0,
+                '슬픔': 0,
                 '두려움': 0,
                 '놀람': 0
             };
@@ -668,14 +667,6 @@
                 '기쁨': '#FFD700',
                 '슬픔': '#5D8AA8',
                 '분노': '#FF4B4B',
-                '불안': '#FFA500',
-                '중립': '#808080',
-                '놀라움': '#9B59B6',
-                '혐오': '#8E44AD',
-                '기대': '#3498DB',
-                '감사': '#2ECC71',
-                '지루함': '#95A5A6',
-                '피로': '#7F8C8D',
                 '두려움': '#722ed1',
                 '놀람': '#9B59B6'
             };
@@ -684,14 +675,6 @@
                 '기쁨': '😊',
                 '슬픔': '😢',
                 '분노': '😠',
-                '불안': '😨',
-                '중립': '😐',
-                '놀라움': '😲',
-                '혐오': '🤢',
-                '기대': '🤩',
-                '감사': '🙏',
-                '지루함': '😑',
-                '피로': '😴',
                 '두려움': '😨',
                 '놀람': '😲'
             };
@@ -714,8 +697,7 @@
                     '분노': 'anger-counter',
                     '슬픔': 'sadness-counter',
                     '두려움': 'fear-counter',
-                    '놀람': 'surprise-counter',
-                    '혐오': 'disgust-counter'
+                    '놀람': 'surprise-counter'
                 };
                 
                 const counterId = counterMap[emotion];
@@ -811,8 +793,7 @@
                 '분노': 0,
                 '슬픔': 0,
                 '두려움': 0,
-                '놀람': 0,
-                '혐오': 0
+                '놀람': 0
             };
 
             // 채팅 메시지 추가 함수
