@@ -13,30 +13,11 @@
             font-family: 'Noto Sans KR', sans-serif;
             margin: 0;
             padding: 0;
-        }
-
-        .button-link {
-            display: block;
-            text-decoration: none;
-            color: #333;
-            background-color: #f8f9fa;
-            padding: 10px 20px;
-            border-radius: 8px;
-            text-align: left;
-            margin-bottom: 10px;
-            font-weight: bold;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-            transition: all 0.3s ease;
-        }
-
-        .button-link:hover {
-            background-color: #78B3CE;
+            background: linear-gradient(to right, #4a6cfa, #2a44d4);
             color: white;
-            transform: translateX(5px);
-        }
-
-        .text-custom-blue-dark {
-            color: #2a44d4;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         
         .chat-container {
@@ -272,19 +253,14 @@
         }
     </style>
 </head>
-<body class="antialiased">
-    <div class="flex h-screen bg-gradient-to-r from-custom-blue-light to-custom-blue-dark">
-        <!-- 사이드바 -->
-        <div class="w-64 bg-white shadow-lg">
-            <div class="p-4">
-                <h2 class="text-2xl font-bold mb-4">✨ <span class="text-custom-blue-dark">메뉴</span></h2>
-                <div class="border-b mb-4"></div>
-
-                <div class="space-y-2">
-                    <a href="#" class="button-link">🔗 Dummy</a>
-                    <a href="#" class="button-link">☁️ S3</a>
-                    <a href="/test" class="button-link">🤖 Chatbot</a>
-                    <a href="#" class="button-link">📄 Report</a>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-content">
+                <a href="http://13.238.128.251:3000/" class="home-btn">
+                    <i class="material-icons">home</i> 홈
+                </a>
+                <h1>감정 인식 챗봇</h1>
             </div>
         </div>
         <div class="test-container">

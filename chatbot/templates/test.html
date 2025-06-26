@@ -50,12 +50,24 @@
             margin: 0 auto;
         }
         
-        .home-btn {
+        .home-btn, .report-btn {
             color: white;
             text-decoration: none;
             display: flex;
             align-items: center;
             font-size: 1.2em;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .report-btn {
+            background: rgba(255, 255, 255, 0.1);
+            margin-left: 20px;
+        }
+        
+        .report-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .home-btn:hover {
@@ -539,12 +551,16 @@
     </style>
 </head>
 <body>
-    <div class="flex h-screen bg-gradient-to-r from-custom-blue-light to-custom-blue-dark">
-        <!-- 사이드바 -->
-        <div class="w-64 bg-white shadow-lg">
-            <div class="p-4">
-                <h2 class="text-2xl font-bold mb-4">✨ <span class="text-custom-blue-dark">메뉴</span></h2>
-                <div class="border-b mb-4"></div>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="header-content">
+                <a href="http://13.238.128.251:3000/" class="home-btn" title="메인 페이지로">
+                    <span class="material-icons">home</span>
+                </a>
+                <h1>시나리오 테스트</h1>
+                <a href="http://13.238.128.251:8503/" class="report-btn" title="리포트 페이지로">
+                    <span class="material-icons">description</span>
+                    Report
                 </a>
             </div>
         </div>
