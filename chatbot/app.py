@@ -143,7 +143,7 @@ app.mount("/emotion_data", StaticFiles(directory="emotion_data"), name="emotion_
 
 # S3 버킷 설정
 TEST_BUCKET = 'kibwa-12'
-TEST_PREFIX = 'dummy/'
+TEST_PREFIX = 'project/'
 CHATBOT_BUCKET = 'kibwa-05'
 CHATBOT_PREFIX = 'project/'
 
@@ -203,7 +203,7 @@ class S3Client:
             raise Exception(f"S3에서 파일을 가져오는 중 오류가 발생했습니다: {str(e)}")
 
     def get_scenario(self, scenario_key):
-        """특정 시나리오를 가져옵니다. 가장 빠른 timestamp의 대화만 반환합니다."""
+        """특정 시나리오를 가져옵니다."""
         try:
             # S3에서 파일 내용 가져오기
             content = self.get_file(scenario_key)
@@ -211,45 +211,31 @@ class S3Client:
             # JSON 문자열 파싱
             try:
                 data = json.loads(content)
-                if not isinstance(data, dict):
-                    raise ValueError("JSON 데이터가 딕셔너리가 아닙니다")
+                if not isinstance(data, list):
+                    raise ValueError("JSON 데이터가 배열이 아닙니다")
             except json.JSONDecodeError as e:
                 logger.error(f"JSON 파싱 오류: {str(e)}")
                 logger.error(f"파일 내용: {content}")
                 raise Exception(f"JSON 파일을 파싱하는 중 오류가 발생했습니다: {str(e)}")
             
-            # timestamp가 가장 빠른 대화만 선택
-            if 'conversation' in data:
-                # timestamp를 기준으로 정렬
-                sorted_conversations = sorted(
-                    data['conversation'],
-                    key=lambda x: datetime.strptime(x.get('timestamp', '2025-06-01'), '%Y-%m-%d')
-                )
+            # JSON 데이터를 messages 배열로 변환
+            messages = []
+            for item in data:
+                if not isinstance(item, dict):
+                    logger.error(f"Invalid item format: {item}")
+                    continue
                 
-                # 가장 빠른 timestamp의 대화만 선택
-                earliest_conversation = sorted_conversations[0] if sorted_conversations else None
+                if 'content' not in item or 'emotion' not in item:
+                    logger.error(f"Missing required fields in item: {item}")
+                    continue
                 
-                if earliest_conversation:
-                    # 대화 내용을 messages 배열로 변환
-                    messages = []
-                    for item in earliest_conversation.get('conversation', []):
-                        if not isinstance(item, dict):
-                            logger.error(f"Invalid item format: {item}")
-                            continue
-                            
-                        if 'content' not in item or 'emotions' not in item:
-                            logger.error(f"Missing required fields in item: {item}")
-                            continue
-                            
-                        messages.append({
-                            'role': 'user' if item['speaker'] == 'Winter' else 'assistant',
-                            'content': item['content'],
-                            'emotion': item['emotions'][0] if item['emotions'] else None
-                        })
-                    
-                    return {"scenario": {"messages": messages}}
+                messages.append({
+                    'role': 'user',
+                    'content': item['content'],
+                    'emotion': item['emotion']
+                })
             
-            return {"scenario": {"messages": []}}
+            return {"scenario": {"messages": messages}}
             
         except Exception as e:
             logger.error(f"S3에서 시나리오를 가져오는 중 오류 발생: {str(e)}")
