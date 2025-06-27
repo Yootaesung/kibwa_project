@@ -763,15 +763,32 @@
 
             // 시나리오 목록 불러오기
             async function loadScenarios() {
+                const scenarioSelect = document.getElementById('scenario-select');
+                if (!scenarioSelect) {
+                    console.error('시나리오 선택 요소를 찾을 수 없습니다.');
+                    return;
+                }
+                
+                // 로딩 상태 표시
+                scenarioSelect.disabled = true;
+                
                 try {
                     const response = await fetch('/api/test/scenarios');
-                    const data = await response.json();
                     
-                    const scenarioSelect = document.getElementById('scenario-select');
-                    if (!scenarioSelect) {
-                        console.error('시나리오 선택 요소를 찾을 수 없습니다.');
-                        return;
+                    // 응답이 성공적인지 확인
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    
+                    // 응답이 JSON인지 확인
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        const text = await response.text();
+                        console.error('예상치 못한 응답 형식:', text.substring(0, 100));
+                        throw new Error('서버로부터 유효하지 않은 응답을 받았습니다. 관리자에게 문의하세요.');
+                    }
+                    
+                    const data = await response.json();
                     
                     // 기존 옵션 제거 (첫 번째 기본 옵션은 유지)
                     while (scenarioSelect.firstChild) {
