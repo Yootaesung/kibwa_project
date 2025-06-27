@@ -49,55 +49,33 @@
             margin: 0 auto;
         }
         
-        .header-content {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            width: 100%;
-        }
-        
-        .header-title {
-            margin: 0;
-            margin-right: auto;
-        }
-        
         .header-buttons {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
         }
         
-        .home-btn, .report-btn {
+        .report-btn {
             color: white;
             text-decoration: none;
             display: flex;
             align-items: center;
-            font-size: 0.95em;
-            padding: 8px 15px;
-            border-radius: 20px;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 1em;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
         }
         
-        .home-btn {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        
-        .home-btn:hover {
+        .report-btn:hover {
             background-color: rgba(255, 255, 255, 0.2);
-            transform: translateY(-1px);
         }
         
         .report-btn {
             background-color: #4CAF50;
-            border: 1px solid #45a049;
         }
         
         .report-btn:hover {
             background-color: #45a049;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         
         .home-btn:hover {
@@ -584,10 +562,10 @@
     <div class="chat-container">
         <div class="chat-header">
             <div class="header-content">
-                <h1 class="header-title">시나리오 테스트</h1>
+                <h1>시나리오 테스트</h1>
                 <div class="header-buttons">
                     <a href="http://13.238.128.251:8503/" class="report-btn" title="Report" target="_blank">
-                        <span class="material-icons" style="font-size: 18px; margin-right: 5px;">assessment</span>
+                        <span class="material-icons">assessment</span>
                         <span>Report</span>
                     </a>
                 </div>
@@ -642,6 +620,12 @@
     </div>
 
     <script>
+        // 로그인 버튼 클릭 이벤트 처리
+        document.querySelector('.home-btn').addEventListener('click', async function(e) {
+            e.preventDefault();
+            window.location.href = '/login';
+        });
+
         document.addEventListener('DOMContentLoaded', function() {
             // DOM 요소 가져오기
             const scenarioSelect = document.getElementById('scenario-select');
